@@ -1,5 +1,6 @@
 # 開発用PCで自動テストを動かすためのライブラリ(中間サーバーには入れない)
 # 版番号は固定する(要件定義書 11.4.5)
+-r collector/requirements.txt
 colorama==0.4.6
 iniconfig==2.3.1
 packaging==26.3

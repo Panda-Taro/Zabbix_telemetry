@@ -140,6 +140,84 @@ AUDIT_ACTIONS: Final[tuple[str, ...]] = ("create", "update", "delete", "login", 
 # 変更履歴の変更前後の値に、決して含めない項目名(8.3.6.1)
 AUDIT_FORBIDDEN_FIELDS: Final[frozenset[str]] = frozenset({"password", "password_hash"})
 
+# ======================================================================
+# 動作ログ(8.5)
+# ======================================================================
+DEFAULT_LOG_DIR: Final[str] = "/data/logs"
+COMPONENT_COLLECTOR: Final[str] = "collector"
+COMPONENT_WEB: Final[str] = "web"
+# 1ファイルの大きさの上限と、残す世代の数(8.5.2)
+LOG_MAX_BYTES: Final[int] = 10 * 1024 * 1024
+LOG_BACKUP_COUNT: Final[int] = 10
+# 同じ内容のログをまとめて出力する間隔(秒)(8.5.3)
+LOG_AGGREGATION_INTERVAL_SEC: Final[int] = 60
+
+# ======================================================================
+# collector(⑥、⑨)
+# ======================================================================
+
+# ---- 受信(9.1.1、11.1.3) ----
+UDP_BIND_ADDRESS: Final[str] = "0.0.0.0"
+# UDPの受信バッファの大きさ(バイト)。既定値より大きくして、受信の集中に備える(11.1.3)
+UDP_RECEIVE_BUFFER_BYTES: Final[int] = 8 * 1024 * 1024
+
+# ---- Zabbixへの送信(9.2.1) ----
+# 1回にまとめて送る値の数の上限
+ZABBIX_BATCH_SIZE: Final[int] = 250
+# 接続と送信のそれぞれで待つ時間(秒)
+ZABBIX_CONNECT_TIMEOUT_SEC: Final[int] = 5
+# 1回の送信全体で待つ時間(秒)。これを過ぎたら接続できないものとして扱う
+ZABBIX_SEND_TIMEOUT_SEC: Final[float] = 15.0
+# 接続できなかったときに、次に接続を試みるまでの間隔(秒)(6.4.1 (g))
+ZABBIX_RECONNECT_INTERVAL_SEC: Final[int] = 5
+
+# ---- 定期処理の間隔(秒) ----
+# 設定の版番号を確認する間隔。保存から反映まで10秒以内にするため(6.7.1)
+CONFIG_POLL_INTERVAL_SEC: Final[int] = 2
+# 状態データをSQLiteへ書き出す間隔(8.4.1)
+STATUS_WRITE_INTERVAL_SEC: Final[int] = 5
+# 定期処理を見回る間隔
+HOUSEKEEPING_TICK_SEC: Final[float] = 1.0
+# 「直近1分間」の件数を数える幅(7.4.2.2)
+RECENT_WINDOW_SEC: Final[int] = 60
+
+# ---- 状態データ(8.4) ----
+STATUS_OK: Final[str] = "ok"
+STATUS_STALE: Final[str] = "stale"
+STATUS_WAITING: Final[str] = "waiting"
+# 未登録の送信元を保存する件数の上限(8.4.5.1)
+UNKNOWN_SOURCES_MAX: Final[int] = 100
+# 未登録の送信元の「データ内のホスト名」として保存する文字数の上限(外部データの大きさの検査、11.3.3)
+MAX_STORED_NODE_ID_LENGTH: Final[int] = 255
+
+# ---- 破棄の理由(8.4.4.2) ----
+DROP_UNKNOWN_SOURCE: Final[str] = "unknown_source"
+DROP_INVALID_DATA: Final[str] = "invalid_data"
+DROP_UNKNOWN_COMMAND: Final[str] = "unknown_command"
+DROP_QUEUE_FULL: Final[str] = "queue_full"
+DROP_ZABBIX_UNREACHABLE: Final[str] = "zabbix_unreachable"
+DROP_REASONS: Final[tuple[str, ...]] = (
+    DROP_UNKNOWN_SOURCE,
+    DROP_INVALID_DATA,
+    DROP_UNKNOWN_COMMAND,
+    DROP_QUEUE_FULL,
+    DROP_ZABBIX_UNREACHABLE,
+)
+
+# ---- 自己監視のキー(9.2.5) ----
+KEY_DEVICE_STATUS: Final[str] = "telemetry.status"
+KEY_DEVICE_AGE: Final[str] = "telemetry.age"
+# コマンドごとの受信状態。{command} に showコマンド名をそのまま入れる(9.2.5.1.1)
+KEY_COMMAND_STATUS_FORMAT: Final[str] = "telemetry.status[{command}]"
+KEY_COLLECTOR_RECEIVED: Final[str] = "telemetry.collector.received"
+KEY_COLLECTOR_DROPPED_FORMAT: Final[str] = "telemetry.collector.dropped[{reason}]"
+KEY_COLLECTOR_SKIPPED: Final[str] = "telemetry.collector.skipped"
+KEY_COLLECTOR_SENT_OK: Final[str] = "telemetry.collector.sent.ok"
+KEY_COLLECTOR_SENT_FAILED: Final[str] = "telemetry.collector.sent.failed"
+KEY_COLLECTOR_QUEUE_SIZE: Final[str] = "telemetry.collector.queue.size"
+KEY_COLLECTOR_DEVICES_TOTAL: Final[str] = "telemetry.collector.devices.total"
+KEY_COLLECTOR_DEVICES_STALE: Final[str] = "telemetry.collector.devices.stale"
+
 # ---- バックアップファイル(8.6) ----
 BACKUP_FORMAT_VERSION: Final[int] = 1
 # バックアップファイルの大きさの上限(バイト)(外部データの大きさの検査、11.3.3)

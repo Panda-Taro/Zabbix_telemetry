@@ -129,14 +129,18 @@ CONFIG_TABLES: tuple[str, ...] = ("devices", "device_interfaces", "settings", "u
 STATUS_TABLES: tuple[str, ...] = ("device_status", "system_status", "unknown_sources")
 
 
-def connect(path: str | Path) -> sqlite3.Connection:
+def connect(path: str | Path, *, check_same_thread: bool = True) -> sqlite3.Connection:
     """データベースに接続する。
 
     - WALモードにする(4.2)
     - 外部キー(機器を削除したらインターフェースも削除、など)を有効にする
     - 自動でのトランザクション開始は行わず、書き込みは transaction() の中で行う
+    check_same_thread を偽にすると、接続を作ったのとは別のスレッドからも使える
+    (同時に2つのスレッドから使わないことは、呼び出す側で守る)。
     """
-    conn = sqlite3.connect(str(path), timeout=SQLITE_BUSY_TIMEOUT_SEC, isolation_level=None)
+    conn = sqlite3.connect(
+        str(path), timeout=SQLITE_BUSY_TIMEOUT_SEC, isolation_level=None, check_same_thread=check_same_thread
+    )
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("PRAGMA journal_mode = WAL")
