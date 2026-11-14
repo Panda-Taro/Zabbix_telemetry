@@ -209,6 +209,44 @@ def test_simulator_to_collector(tmp_path):
     assert "合計 16 パケット" in out.getvalue()
 
 
+def test_simulator_10_devices_short_interval_54_ports(tmp_path):
+    """10台・0.1秒間隔・帯域54ポートで送り、collector が全パケットを受け取り、値をすべて送る(結合テストの負荷の条件)。"""
+    db = tmp_path / "telemetry.db"
+    port = free_udp_port()
+    prepare_db(db, settings={"telemetry_udp_port": str(port)})
+    conn = connect(db)
+    with transaction(conn):
+        for n in range(1, 11):
+            cursor = conn.execute(
+                "INSERT INTO devices (hostname, source_ip, device_type, cmd_counters_brief, cmd_ptp_brief,"
+                " cmd_ptp_clock, cmd_ptp_parent, created_at, updated_at)"
+                " VALUES (?, ?, 'cisco_nexus', 1, 1, 1, 1, 'x', 'x')",
+                (f"NEXUS-TEST-{n:02d}", f"127.0.0.{n}"),
+            )
+            rows = [(cursor.lastrowid, "counters", 1, p) for p in range(1, 55)] + [(cursor.lastrowid, "ptp", 1, 1)]
+            conn.executemany("INSERT INTO device_interfaces (device_id, purpose, slot, port) VALUES (?, ?, ?, ?)", rows)
+    conn.close()
+
+    async def scenario():
+        async with started_app(db, clock=FakeClock(), use_sources=True, run_sender_task=True) as (app, sink, _):
+            args = args_for(
+                "--target", "127.0.0.1", "--port", str(port), "--devices", "10", "--source-ips", "127.0.0.1-10",
+                "--interval", "0.1", "--ports", "54", "--count", "5", "--quiet",
+            )  # fmt: skip
+            summary = await asyncio.to_thread(sim.run, args, io.StringIO())
+            assert summary == {"sent": 10 * 5 * 4, "errors": 0}
+            await wait_until(lambda: app.runtime.counters.recent()[RECEIVED] == 200)
+            await wait_until(lambda: len(app.runtime.queue) == 0)
+            counts = app.runtime.counters.recent()
+            assert counts[dropped("queue_full")] == 0
+            assert counts[dropped("invalid_data")] == 0
+            # 1回あたり:帯域 54ポート×2 + PTPポート1 + clock 2 + parent 1 = 112個。10台×5回分と、起動時のLLD用データ(10台×2)
+            assert counts[SENT_OK] == 10 * 5 * 112 + 10 * 2
+            assert len({v.host for v in sink.values}) == 10
+
+    asyncio.run(scenario())
+
+
 @pytest.mark.parametrize(
     ("abnormal", "reason"),
     [("broken", "invalid_data"), ("unknown-command", "unknown_command")],
