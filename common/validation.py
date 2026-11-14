@@ -27,6 +27,7 @@ from common.constants import (
     SETTING_LLD_INTERVAL_SEC,
     SETTING_LOG_LEVEL,
     SETTING_QUEUE_MAX_SIZE,
+    SETTING_RANGES,
     SETTING_SELF_MONITOR_INTERVAL_SEC,
     SETTING_STALE_TIMEOUT_SEC,
     SETTING_TELEMETRY_UDP_PORT,
@@ -153,9 +154,14 @@ def check_hostname(hostname: str) -> list[str]:
         return ["ホスト名に使えるのは、半角の英数字、ピリオド(.)、ハイフン(-)、アンダースコア(_)、空白だけです"]
     if hostname != hostname.strip():
         return ["ホスト名の先頭と末尾に、空白は使えません"]
-    if hostname == SELF_ZABBIX_HOSTNAME:
+    if same_hostname(hostname, SELF_ZABBIX_HOSTNAME):
         return [f"「{SELF_ZABBIX_HOSTNAME}」は本システム自身のZabbixホスト名のため、機器のホスト名には使えません"]
     return []
+
+
+def same_hostname(first: str, second: str) -> bool:
+    """機器登録の検査で、2つのホスト名を同じと見なすか。大文字・小文字は区別しない(決定事項 D-008)。"""
+    return first.lower() == second.lower()
 
 
 def normalize_ipv4(text: str) -> str:
@@ -173,6 +179,30 @@ def normalize_ipv4(text: str) -> str:
     except ValueError:
         raise ValueError("IPアドレスの形式が正しくありません(例:192.0.2.1)") from None
     return str(address)
+
+
+# 送信元IPアドレスとして受け付けないアドレス(決定事項 D-007)
+_REJECTED_SOURCE_NETWORKS = (
+    ipaddress.IPv4Network("0.0.0.0/32"),
+    ipaddress.IPv4Network("127.0.0.0/8"),
+    ipaddress.IPv4Network("255.255.255.255/32"),
+    ipaddress.IPv4Network("224.0.0.0/4"),  # マルチキャスト(224.0.0.0〜239.255.255.255)
+)
+
+
+def normalize_source_ip(text: str) -> str:
+    """機器の送信元IPアドレスを検査し、標準の表記にして返す。正しくなければ ValueError。
+
+    形式の検査に加えて、機器には使わない特別なアドレスを拒否する。
+    """
+    normalized = normalize_ipv4(text)
+    address = ipaddress.IPv4Address(normalized)
+    if any(address in network for network in _REJECTED_SOURCE_NETWORKS):
+        raise ValueError(
+            "このIPアドレスは、機器の送信元としては使えません"
+            "(0.0.0.0、127.x.x.x、255.255.255.255、224.0.0.0〜239.255.255.255 は使えません)"
+        )
+    return normalized
 
 
 # ======================================================================
@@ -251,12 +281,12 @@ def build_device(
 
     normalized_ip = ""
     try:
-        normalized_ip = normalize_ipv4(source_ip)
+        normalized_ip = normalize_source_ip(source_ip)
     except ValueError as exc:
         add("source_ip", str(exc))
 
     others = [device for device in existing if self_id is None or device.id != self_id]
-    if "hostname" not in errors and any(device.hostname == hostname for device in others):
+    if "hostname" not in errors and any(same_hostname(device.hostname, hostname) for device in others):
         add("hostname", "このホスト名は、他の機器で登録済みです")
     if normalized_ip and any(device.source_ip == normalized_ip for device in others):
         add("source_ip", "この送信元IPアドレスは、他の機器で登録済みです")
@@ -342,8 +372,9 @@ def _check_port(label: str) -> Callable[[str], str]:
     return lambda text: _check_integer(text, TCP_UDP_PORT_MIN, TCP_UDP_PORT_MAX, label)
 
 
-def _check_positive(label: str) -> Callable[[str], str]:
-    return lambda text: _check_integer(text, 1, SETTING_INTEGER_MAX, label)
+def _check_ranged(key: str, label: str) -> Callable[[str], str]:
+    minimum, maximum = SETTING_RANGES[key]
+    return lambda text: _check_integer(text, minimum, maximum, label)
 
 
 def _check_zabbix_server(text: str) -> str:
@@ -371,10 +402,10 @@ _SETTING_CHECKERS = {
     SETTING_ZABBIX_SERVER: _check_zabbix_server,
     SETTING_ZABBIX_PORT: _check_port("Zabbixサーバーのポート番号"),
     SETTING_TELEMETRY_UDP_PORT: _check_port("Telemetryの受信ポート番号"),
-    SETTING_STALE_TIMEOUT_SEC: _check_positive("途絶判定時間"),
-    SETTING_SELF_MONITOR_INTERVAL_SEC: _check_positive("自己監視値の送信間隔"),
-    SETTING_LLD_INTERVAL_SEC: _check_positive("LLD用データの定期送信間隔"),
-    SETTING_QUEUE_MAX_SIZE: _check_positive("送信待ちキューの上限"),
+    SETTING_STALE_TIMEOUT_SEC: _check_ranged(SETTING_STALE_TIMEOUT_SEC, "途絶判定時間(秒)"),
+    SETTING_SELF_MONITOR_INTERVAL_SEC: _check_ranged(SETTING_SELF_MONITOR_INTERVAL_SEC, "自己監視値の送信間隔(秒)"),
+    SETTING_LLD_INTERVAL_SEC: _check_ranged(SETTING_LLD_INTERVAL_SEC, "LLD用データの定期送信間隔(秒)"),
+    SETTING_QUEUE_MAX_SIZE: _check_ranged(SETTING_QUEUE_MAX_SIZE, "送信待ちキューの上限(件)"),
     SETTING_LOG_LEVEL: _check_log_level,
     SETTING_WEBGUI_PORT: _check_port("WebGUIのポート番号"),
     SETTING_CONFIG_VERSION: _check_config_version,

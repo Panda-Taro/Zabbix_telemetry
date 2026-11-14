@@ -18,9 +18,10 @@ SCHEMA_SQL = """
 
 -- 登録した機器(8.3.1)
 -- id は削除後も使い回さない(AUTOINCREMENT)。状態データの device_id と取り違えないため
+-- hostname の重複は、大文字・小文字を区別せずに判定する(COLLATE NOCASE)
 CREATE TABLE IF NOT EXISTS devices (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
-    hostname            TEXT    NOT NULL UNIQUE,
+    hostname            TEXT    NOT NULL UNIQUE COLLATE NOCASE,
     source_ip           TEXT    NOT NULL UNIQUE,
     device_type         TEXT    NOT NULL,
     cmd_counters_brief  INTEGER NOT NULL CHECK (cmd_counters_brief IN (0, 1)),

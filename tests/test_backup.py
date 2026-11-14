@@ -172,6 +172,14 @@ def _broken_variants(valid: dict) -> dict[str, bytes]:
         "設定の値が不正": mutate(set_setting("zabbix_port", "70000")),
         "設定の値が数値": mutate(set_setting("zabbix_port", 10051)),
         "ログレベルが不正": mutate(set_setting("log_level", "VERBOSE")),
+        "途絶判定時間が範囲外": mutate(set_setting("stale_timeout_sec", "29")),
+        "自己監視値の送信間隔が範囲外": mutate(set_setting("self_monitor_interval_sec", "121")),
+        "LLDの送信間隔が範囲外": mutate(set_setting("lld_interval_sec", "299")),
+        "キューの上限が範囲外": mutate(set_setting("queue_max_size", "1000001")),
+        "送信元IPアドレスがループバック": mutate(set_device(0, "source_ip", "127.0.0.1")),
+        "送信元IPアドレスがマルチキャスト": mutate(set_device(0, "source_ip", "239.1.1.1")),
+        "ホスト名がTelemetry": mutate(set_device(0, "hostname", "Telemetry")),
+        "ホスト名が大文字・小文字違いで重複": mutate(set_device(1, "hostname", "nexus-test-01")),
         "ZabbixのIPアドレスが不正": mutate(set_setting("zabbix_server", "zabbix")),
     }
 

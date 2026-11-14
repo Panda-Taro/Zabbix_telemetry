@@ -297,6 +297,17 @@ def test_cf_06_deleting_device_does_not_touch_status(db):
     assert db.execute("SELECT COUNT(*) FROM device_status").fetchone()[0] == 1
 
 
+def test_hostname_unique_case_insensitive_in_database(db):
+    """データベースでも、ホスト名の重複は大文字・小文字を区別せずに防ぐ(決定事項 D-008)。"""
+    save_device(db, device_form())
+    with pytest.raises(sqlite3.IntegrityError):
+        db.execute(
+            "INSERT INTO devices (hostname, source_ip, device_type, cmd_counters_brief, cmd_ptp_brief,"
+            " cmd_ptp_clock, cmd_ptp_parent, created_at, updated_at)"
+            " VALUES ('nexus-test-01', '192.0.2.50', 'cisco_nexus', 0, 0, 1, 0, 'x', 'x')"
+        )
+
+
 def test_foreign_keys_enabled(db):
     with pytest.raises(sqlite3.IntegrityError):
         db.execute("INSERT INTO device_interfaces (device_id, purpose, slot, port) VALUES (999, 'ptp', 1, 1)")

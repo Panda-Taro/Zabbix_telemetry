@@ -107,7 +107,14 @@ SETTING_DEFAULTS: Final[dict[str, str]] = {
 LOG_LEVELS: Final[tuple[str, ...]] = ("DEBUG", "INFO", "WARNING", "ERROR")
 TCP_UDP_PORT_MIN: Final[int] = 1
 TCP_UDP_PORT_MAX: Final[int] = 65535
-# 時間・件数の設定値として受け付ける最大値(桁あふれを防ぐための上限)
+# 時間・件数の設定で受け付ける範囲(最小, 最大)(決定事項 D-005)
+SETTING_RANGES: Final[dict[str, tuple[int, int]]] = {
+    SETTING_STALE_TIMEOUT_SEC: (30, 3_600),
+    SETTING_SELF_MONITOR_INTERVAL_SEC: (10, 120),
+    SETTING_LLD_INTERVAL_SEC: (300, 86_400),
+    SETTING_QUEUE_MAX_SIZE: (1_000, 1_000_000),
+}
+# 設定の版番号として受け付ける最大値(桁あふれを防ぐための上限)
 SETTING_INTEGER_MAX: Final[int] = 2_147_483_647
 
 # ---- ユーザー(8.3.4) ----

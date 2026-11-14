@@ -259,6 +259,62 @@ def test_settings_invalid(key, value):
         validate_settings({key: value})
 
 
+@pytest.mark.parametrize(
+    ("key", "minimum", "maximum"),
+    [
+        ("stale_timeout_sec", 30, 3_600),
+        ("self_monitor_interval_sec", 10, 120),
+        ("lld_interval_sec", 300, 86_400),
+        ("queue_max_size", 1_000, 1_000_000),
+    ],
+)
+def test_settings_ranges(key, minimum, maximum):
+    """時間・件数の設定は、決められた範囲だけを受け付ける(決定事項 D-005)。"""
+    assert validate_settings({key: str(minimum)}) == {key: str(minimum)}
+    assert validate_settings({key: str(maximum)}) == {key: str(maximum)}
+    for value in (minimum - 1, maximum + 1):
+        with pytest.raises(ValidationError):
+            validate_settings({key: str(value)})
+
+
+def test_settings_defaults_are_within_ranges():
+    from common.constants import SETTING_DEFAULTS
+
+    defaults = {key: value for key, value in SETTING_DEFAULTS.items()}
+    assert validate_settings(defaults).keys() == defaults.keys()
+
+
+@pytest.mark.parametrize(
+    "source_ip",
+    ["0.0.0.0", "127.0.0.1", "127.255.255.255", "127.1.2.3", "255.255.255.255", "224.0.0.1", "239.255.255.255", "232.1.1.1"],
+)
+def test_t1_18_special_source_ip_rejected(source_ip):
+    """機器には使わない特別なIPアドレスが拒否される(決定事項 D-007)。"""
+    assert "source_ip" in errors_of(form(source_ip=source_ip))
+
+
+@pytest.mark.parametrize("source_ip", ["0.0.0.1", "126.255.255.255", "128.0.0.1", "223.255.255.255", "240.0.0.1", "198.51.100.1"])
+def test_t1_18_ordinary_source_ip_accepted(source_ip):
+    assert validate_device_form(form(source_ip=source_ip), EXISTING).source_ip == source_ip
+
+
+@pytest.mark.parametrize("hostname", ["Telemetry", "TELEMETRY", "teLEmetry"])
+def test_t1_18_reserved_hostname_case_insensitive(hostname):
+    """「telemetry」の禁止は、大文字・小文字を区別しない(決定事項 D-008)。"""
+    assert "hostname" in errors_of(form(hostname=hostname))
+
+
+@pytest.mark.parametrize("hostname", ["nexus-test-01", "Nexus-Test-01", "NEXUS-test-02"])
+def test_t1_18_duplicate_hostname_case_insensitive(hostname):
+    """機器どうしのホスト名の重複は、大文字・小文字を区別せずに判定する(決定事項 D-008)。"""
+    assert "hostname" in errors_of(form(hostname=hostname))
+
+
+def test_t1_18_changing_case_of_own_hostname():
+    data = validate_device_form(form(hostname="nexus-test-01", source_ip="192.0.2.1"), EXISTING, self_id=1)
+    assert data.hostname == "nexus-test-01"
+
+
 def test_settings_zabbix_server_required_on_screen():
     """全体設定の画面では、ZabbixサーバーのIPアドレスは必須(7.4.5.1)。"""
     assert validate_settings({"zabbix_server": ""}) == {"zabbix_server": ""}
