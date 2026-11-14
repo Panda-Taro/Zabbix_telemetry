@@ -126,7 +126,7 @@ class CollectorApp:
         set_log_level(self.logger, config.log_level)
         self.runtime.tracker.apply_config(config.devices, now)
 
-        self.sender = ZabbixSender(self.runtime, self._current_sink)
+        self.sender = ZabbixSender(self.runtime, self._current_sink, on_recovered=self._resend_lld_after_recovery)
         self.sources = self._sources_factory(self.runtime)
         await self._apply_sources(config)
         if self._run_sender_task:
@@ -242,7 +242,8 @@ class CollectorApp:
         if config.queue_max_size != old.queue_max_size:
             discarded = runtime.queue.resize(config.queue_max_size)
             runtime.counters.add(dropped(DROP_QUEUE_FULL), discarded)
-        if (config.zabbix_server, config.zabbix_port) != (old.zabbix_server, old.zabbix_port):
+        target_changed = (config.zabbix_server, config.zabbix_port) != (old.zabbix_server, old.zabbix_port)
+        if target_changed:
             self.sender.reset_connection()
             self.logger.info("Zabbixの送信先を変更しました(%s:%d)", config.zabbix_server or "未設定", config.zabbix_port)
         if config.self_monitor_interval_sec != old.self_monitor_interval_sec:
@@ -252,13 +253,24 @@ class CollectorApp:
 
         needs_lld = runtime.tracker.apply_config(config.devices, now)
         await self._apply_sources(config)
-        # 機器の登録内容が変わった場合は、LLD用データを送り直す(6.7.1、LD-04)
-        self.send_lld(needs_lld)
+        if target_changed and config.zabbix_server:
+            # 新しい送信先(後から設定した場合を含む)へ、全機器分のLLD用データを送る(決定事項 D-014)
+            self.send_lld(config.devices)
+        else:
+            # 機器の登録内容が変わった場合は、LLD用データを送り直す(6.7.1、LD-04)
+            self.send_lld(needs_lld)
         self.logger.info("設定を読み込み直しました(設定の版番号 %d)", config.version)
 
     # ------------------------------------------------------------------
     # LLD用データ(6.5、LD-01〜LD-04)
     # ------------------------------------------------------------------
+    def _resend_lld_after_recovery(self) -> None:
+        """Zabbixへ送信できるようになった時点で、全機器分のLLD用データを送り直す(決定事項 D-014)。"""
+        devices = self.runtime.config.devices
+        if devices:
+            self.logger.info("Zabbixへ送信できるようになったため、LLD用データを送り直します(%d 台)", len(devices))
+        self.send_lld(devices)
+
     def send_lld(self, devices: tuple[DeviceConfig, ...] | list[DeviceConfig]) -> None:
         now = self._now_ns()
         for device in devices:

@@ -215,9 +215,102 @@ def test_zabbix_unreachable_then_recovers(tmp_path):
             await app.sender.drain()
             assert app.sender.connected is True
             new_values = sink.values[sent_before:]
-            assert {v.key for v in new_values} == {"show.ptp.clock.clock-state", "show.ptp.clock.offset-from-master"}
+            assert {v.key for v in new_values} - LLD_KEYS == {
+                "show.ptp.clock.clock-state",
+                "show.ptp.clock.offset-from-master",
+            }
             # 停止中の値(show ptp parent)は再送されない
             assert "show.ptp.parent.gm-id" not in {v.key for v in sink.values}
+            # 送信できるようになった時点で、LLD用データを送り直す(決定事項 D-014)
+            assert {v.key for v in new_values} & LLD_KEYS == LLD_KEYS
+
+    run(scenario())
+
+
+def test_lld_resent_when_zabbix_was_down_at_start(tmp_path):
+    """起動時にZabbixが止まっていた場合、送信できるようになった時点で全機器分のLLD用データを送り直す(D-014)。"""
+    db = tmp_path / "telemetry.db"
+    prepare_db(db, [device(), device("NEXUS-TEST-02", "192.0.2.2")])
+    sink = FakeSink()
+    sink.mode = "unreachable"
+
+    async def scenario():
+        async with started_app(db, sink=sink) as (app, _, clock):
+            await app.sender.drain()  # 起動時のLLD用データは届かない
+            assert sink.values == []
+            sink.mode = "ok"
+            clock.advance(6)
+            handler_of(app).handle(fixture_bytes("show ptp clock"), "192.0.2.1", clock())
+            await app.sender.drain()
+            lld = {(v.host, v.key) for v in sink.values if v.key in LLD_KEYS}
+            assert lld == {(host, key) for host in ("NEXUS-TEST-01", "NEXUS-TEST-02") for key in LLD_KEYS}
+            # 送り直しは1回だけ
+            await app.sender.drain()
+            assert len([v for v in sink.values if v.key in LLD_KEYS]) == 4
+
+    run(scenario())
+
+
+def test_lld_sent_when_zabbix_server_set_later(tmp_path):
+    """ZabbixサーバーのIPアドレスを後から設定した場合も、全機器分のLLD用データを送る(D-014)。"""
+    from common.config_writer import update_settings
+    from common.database import connect
+
+    db = tmp_path / "telemetry.db"
+    prepare_db(db, [device(), device("NEXUS-TEST-02", "192.0.2.2")], settings={"zabbix_server": ""})
+
+    async def scenario():
+        async with started_app(db) as (app, sink, clock):
+            await app.sender.drain()
+            assert sink.calls == 0
+            conn = connect(db)
+            update_settings(conn, {"zabbix_server": "192.0.2.100"})
+            conn.close()
+            clock.advance(2)
+            await app.tick()
+            await app.sender.drain()
+            lld = [(v.host, v.key) for v in sink.values if v.key in LLD_KEYS]
+            assert sorted(lld) == sorted((h, k) for h in ("NEXUS-TEST-01", "NEXUS-TEST-02") for k in LLD_KEYS)
+            assert app.sink_targets == [("192.0.2.100", 10051)]
+
+    run(scenario())
+
+
+def test_lld_sent_to_new_zabbix_server(tmp_path):
+    """Zabbixの送信先を変えた場合は、新しい送信先へ全機器分のLLD用データを送る(D-014)。"""
+    from common.config_writer import update_settings
+    from common.database import connect
+
+    db = tmp_path / "telemetry.db"
+    prepare_db(db, [device()])
+
+    async def scenario():
+        async with started_app(db) as (app, sink, clock):
+            await app.sender.drain()
+            sink.batches.clear()
+            conn = connect(db)
+            update_settings(conn, {"zabbix_server": "192.0.2.101"})
+            conn.close()
+            clock.advance(2)
+            await app.tick()
+            await app.sender.drain()
+            assert len([v for v in sink.values if v.key in LLD_KEYS]) == 2
+            assert app.sink_targets[-1] == ("192.0.2.101", 10051)
+
+    run(scenario())
+
+
+def test_lld_not_duplicated_on_normal_start(tmp_path):
+    """Zabbixが正常なときの起動では、LLD用データは1回だけ送る。"""
+    db = tmp_path / "telemetry.db"
+    prepare_db(db, [device()])
+
+    async def scenario():
+        async with started_app(db) as (app, sink, clock):
+            await app.sender.drain()
+            handler_of(app).handle(fixture_bytes("show ptp clock"), "192.0.2.1", clock())
+            await app.sender.drain()
+            assert len([v for v in sink.values if v.key in LLD_KEYS]) == 2
 
     run(scenario())
 
