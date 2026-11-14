@@ -5,6 +5,8 @@
 
 import copy
 import json
+import sqlite3
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -41,3 +43,18 @@ def to_payload(document: dict[str, Any], header: bytes = b"") -> bytes:
 @pytest.fixture
 def load_document():
     return fixture_document
+
+
+@pytest.fixture
+def db(tmp_path: Path) -> Iterator[sqlite3.Connection]:
+    """テストごとに、一時フォルダに新しいデータベースを作り、初期データを登録する。"""
+    from common.config_writer import seed_initial_data
+    from common.database import connect, initialize_schema
+
+    conn = connect(tmp_path / "telemetry.db")
+    initialize_schema(conn)
+    seed_initial_data(conn)
+    try:
+        yield conn
+    finally:
+        conn.close()
