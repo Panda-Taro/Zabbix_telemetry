@@ -1,0 +1,25 @@
+{
+  "version_str": "1.0.0",
+  "node_id_str": "NEXUS-TEST-01",
+  "encoding_path": "show ptp parent",
+  "collection_id": 1002,
+  "collection_start_time": "1700000000000",
+  "collection_end_time": "1700000000100",
+  "msg_timestamp": "1700000000100",
+  "subscription_id": "300",
+  "sensor_group_id": [],
+  "data_source": "NX-API",
+  "data": {
+    "clock-id": "00:00:5e:ff:fe:00:53:ff",
+    "port-num": 1,
+    "obs-parent-offset": "N/A",
+    "obs-parent-clk-phase-chg": "N/A",
+    "parent-ip": "192.0.2.1",
+    "gm-id": "00:00:5e:ff:fe:00:53:ff",
+    "gm-class": 6,
+    "gm-accuracy": 33,
+    "gm-scaled-log-variance": 16272,
+    "gm-priority1": 1,
+    "gm-priority2": 1
+  }
+}

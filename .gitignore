@@ -1,0 +1,41 @@
+# ===== 公開リポジトリに置かないもの =====
+
+# 開発用PCの中だけに置く文書
+CLAUDE.md
+docs_local/
+.claude/
+
+# データベース、ログ、バックアップファイル
+/data/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+*.log
+*.log.*
+logs/
+backup/
+backups/
+*.bak
+*backup*.json
+
+# Pythonの仮想環境、キャッシュ
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# エディタ、OSが作るファイル
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
+.DS_Store

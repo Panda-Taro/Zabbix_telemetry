@@ -1,0 +1,56 @@
+{
+  "version_str": "1.0.0",
+  "node_id_str": "NEXUS-TEST-01",
+  "encoding_path": "show ptp brief",
+  "collection_id": 1003,
+  "collection_start_time": "1700000000000",
+  "collection_end_time": "1700000000100",
+  "msg_timestamp": "1700000000100",
+  "subscription_id": "300",
+  "sensor_group_id": [],
+  "data_source": "NX-API",
+  "data": {
+    "gptp-flag": 0,
+    "TABLE_ptp": {
+      "ROW_ptp": [
+        {
+          "ptp-ifindex": "Eth1/1",
+          "state": "slave"
+        },
+        {
+          "ptp-ifindex": "Eth1/3",
+          "state": "master"
+        },
+        {
+          "ptp-ifindex": "Eth1/4",
+          "state": "master"
+        },
+        {
+          "ptp-ifindex": "Eth1/5",
+          "state": "master"
+        },
+        {
+          "ptp-ifindex": "Eth1/6",
+          "state": "master"
+        },
+        {
+          "ptp-ifindex": "Eth1/7",
+          "state": "master"
+        },
+        {
+          "ptp-ifindex": "Eth1/8",
+          "state": "master"
+        },
+        {
+          "ptp-ifindex": "Eth1/9",
+          "state": "disabled"
+        },
+        {
+          "ptp-ifindex": "Eth1/21",
+          "state": "disabled"
+        }
+      ]
+    },
+    "ptp-end": "PTP-END"
+  }
+}
