@@ -1,0 +1,119 @@
+{# ダッシュボードの中身(7.4.2)。自動更新のときは、この部分だけを読み込み直す #}
+{% if user.is_admin and user.is_initial_password %}
+<p class="banner banner-warn" role="alert">管理者のパスワードが初期パスワードのままです。画面右上のユーザー名を押して、パスワードを変更してください。</p>
+{% endif %}
+{% if view.config_error %}
+<p class="banner banner-warn" role="alert">collectorが新しい設定を読み込めませんでした。直前の設定のまま動作しています。内容:{{ view.config_error }}</p>
+{% endif %}
+
+<section class="panel">
+  <h2 class="panel-title">全体の状態</h2>
+  <div class="cards">
+    <div class="card">
+      <div class="card-label">collectorの稼働状態</div>
+      <div class="card-value"><span class="badge badge-{{ view.collector.color }}">{{ view.collector.text }}</span></div>
+    </div>
+    <div class="card">
+      <div class="card-label">Zabbixとの接続状態</div>
+      <div class="card-value"><span class="badge badge-{{ view.zabbix.color }}">{{ view.zabbix.text }}</span></div>
+    </div>
+    <div class="card">
+      <div class="card-label">登録機器数</div>
+      <div class="card-value">{{ view.devices_total }} 台</div>
+      <div class="card-sub">
+        {% for badge in view.devices_breakdown %}<span class="badge badge-{{ badge.color }}">{{ badge.text }}</span> {% endfor %}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-label">受信件数(直近1分間)</div>
+      <div class="card-value">{{ "{:,}".format(view.received) }} パケット</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Zabbix送信(直近1分間)</div>
+      <div class="card-value">
+        成功 {{ "{:,}".format(view.sent_ok) }} /
+        <span class="text-{{ view.sent_failed_color }}">失敗 {{ "{:,}".format(view.sent_failed) }}</span>
+      </div>
+      <div class="card-sub">値の数。監視データに加えて、LLD用データと自己監視値の送信も含みます</div>
+    </div>
+    <div class="card">
+      <div class="card-label">対象外の件数(直近1分間)</div>
+      <div class="card-value">{{ "{:,}".format(view.skipped) }} パケット</div>
+      <div class="card-sub">チェックを外したコマンドのデータ</div>
+    </div>
+    <div class="card">
+      <div class="card-label">送信待ちキュー</div>
+      <div class="card-value">{{ "{:,}".format(view.queue_size) }} / {{ "{:,}".format(view.queue_max) }} 件</div>
+    </div>
+  </div>
+
+  <h3 class="sub-title">破棄件数(直近1分間)</h3>
+  <table class="table table-compact">
+    <thead><tr><th>理由</th><th class="num">件数</th><th>単位</th></tr></thead>
+    <tbody>
+    {% for drop in view.drops %}
+      <tr><td>{{ drop.label }}</td><td class="num"><span class="text-{{ drop.color }}">{{ "{:,}".format(drop.count) }}</span></td><td>{{ drop.unit }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="panel">
+  <h2 class="panel-title">機器ごとの状態</h2>
+  {% if view.devices %}
+  <div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>ホスト名</th><th>送信元IPアドレス</th><th>受信状態</th><th>最終受信時刻</th>
+        <th>show interface counters brief</th><th>show ptp brief</th><th>show ptp clock</th><th>show ptp parent</th>
+        <th>不整合</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for device in view.devices %}
+      <tr>
+        <td>{{ device.hostname }}</td>
+        <td>{{ device.source_ip }}</td>
+        <td><span class="badge badge-{{ device.status.color }}">{{ device.status.text }}</span></td>
+        <td>{{ device.last_received.text }}{% if device.last_received.elapsed %}<br><span class="elapsed">{{ device.last_received.elapsed }}</span>{% endif %}</td>
+        {% for item in device.commands %}
+        <td class="text-{{ item.cell.color }}">{{ item.cell.text }}{% if item.cell.elapsed %}<br><span class="elapsed">{{ item.cell.elapsed }}</span>{% endif %}</td>
+        {% endfor %}
+        <td>
+          {% for text in device.mismatches %}<span class="badge badge-warn">{{ text }}</span> {% endfor %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="note">コマンドの欄は、最終受信時刻です。途絶判定時間を過ぎたものは赤、まだ受信していないものは黄で表示します。</p>
+  {% else %}
+  <p class="empty">登録されている機器はありません。</p>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2 class="panel-title">未登録の送信元からの受信
+    {% if view.unknown_sources %}<span class="badge badge-warn">{{ view.unknown_sources|length }} 件</span>{% endif %}
+  </h2>
+  {% if view.unknown_sources %}
+  <table class="table">
+    <thead><tr><th>送信元IPアドレス</th><th>データ内のホスト名</th><th class="num">件数</th><th>最終受信時刻</th></tr></thead>
+    <tbody>
+    {% for source in view.unknown_sources %}
+      <tr class="row-warn">
+        <td>{{ source.source_ip }}</td>
+        <td>{{ source.node_id if source.node_id else "(読み取れません)" }}</td>
+        <td class="num">{{ "{:,}".format(source.count) }}</td>
+        <td>{{ source.last_received.text }}{% if source.last_received.elapsed %}<br><span class="elapsed">{{ source.last_received.elapsed }}</span>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="note">登録していない送信元、または登録したホスト名と一致しないデータを破棄しています。機器の登録内容を確かめてください。</p>
+  {% else %}
+  <p class="empty">ありません。</p>
+  {% endif %}
+</section>

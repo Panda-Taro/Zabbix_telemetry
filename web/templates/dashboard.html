@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}ダッシュボード{% endblock %}
+{% block content %}
+<h1 class="page-title">ダッシュボード</h1>
+{# 中身は10秒ごとに自動で読み込み直す(7.1.4) #}
+<div id="dashboard" hx-get="/dashboard/content" hx-trigger="every {{ refresh_sec }}s" hx-swap="innerHTML">
+  {% include "_dashboard_content.html" %}
+</div>
+<p class="note">表示は{{ refresh_sec }}秒ごとに自動で更新されます。日時は日本時間です。</p>
+{% endblock %}

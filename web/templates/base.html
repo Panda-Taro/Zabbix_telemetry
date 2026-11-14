@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {# htmx が画面に直接スタイルを書き込まないようにする(セキュリティの設定のため) #}
+  <meta name="htmx-config" content='{"includeIndicatorStyles": false}'>
+  <title>{% block title %}{% endblock %} - {{ system_name }}</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/vendor/htmx.min.js" defer></script>
+</head>
+<body>
+{% if user %}
+  <header class="header">
+    <div class="header-title">{{ system_name }}</div>
+    <div class="header-user">
+      <a class="header-username" href="/password" title="パスワード変更">{{ user.username }}({{ "管理者" if user.is_admin else "閲覧者" }})</a>
+      <form method="post" action="/logout" class="inline-form">
+        <input type="hidden" name="csrf" value="{{ csrf_token }}">
+        <button type="submit" class="button button-small">ログアウト</button>
+      </form>
+    </div>
+  </header>
+  <div class="layout">
+    <nav class="sidebar" aria-label="メニュー">
+      <ul>
+      {% for label, href, admin_only, level in menu %}
+        {% if href %}
+        <li class="menu-item level-{{ level }}{% if current_path == href %} active{% endif %}"><a href="{{ href }}">{{ label }}</a></li>
+        {% else %}
+        <li class="menu-group level-{{ level }}">{{ label }}</li>
+        {% endif %}
+      {% endfor %}
+      </ul>
+    </nav>
+    <main class="main">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+{% else %}
+  <main class="main-centered">
+    {% block outside %}{% endblock %}
+  </main>
+{% endif %}
+</body>
+</html>

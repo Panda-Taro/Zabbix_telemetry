@@ -218,6 +218,33 @@ KEY_COLLECTOR_QUEUE_SIZE: Final[str] = "telemetry.collector.queue.size"
 KEY_COLLECTOR_DEVICES_TOTAL: Final[str] = "telemetry.collector.devices.total"
 KEY_COLLECTOR_DEVICES_STALE: Final[str] = "telemetry.collector.devices.stale"
 
+# ======================================================================
+# WebGUI(⑦)
+# ======================================================================
+
+# ヘッダーに表示するシステム名(7.1.3、決定事項 D-021)
+SYSTEM_NAME: Final[str] = "Telemetry 中間サーバー"
+DEFAULT_WEB_HOST: Final[str] = "0.0.0.0"
+
+# ---- ログイン(7.4.1) ----
+# 続けて失敗できる回数と、ログインできなくする時間(7.4.1.2)
+LOGIN_MAX_FAILURES: Final[int] = 5
+LOGIN_LOCK_SEC: Final[int] = 15 * 60
+# ログイン状態を示すCookieの名前
+SESSION_COOKIE_NAME: Final[str] = "telemetry_session"
+# ログイン画面の不正な操作を防ぐための、ログイン前のCookieの名前
+LOGIN_CSRF_COOKIE_NAME: Final[str] = "telemetry_login_csrf"
+# Cookieの有効期限(秒)。ブラウザが受け付ける最長(400日)とし、画面を開くたびに延ばす(決定事項 D-024)
+SESSION_COOKIE_MAX_AGE_SEC: Final[int] = 400 * 24 * 60 * 60
+# 変更履歴に記録する、入力されたユーザー名の文字数の上限(外部データの大きさの検査、11.3.3)
+MAX_USERNAME_INPUT_LENGTH: Final[int] = 128
+
+# ---- ダッシュボード(7.4.2) ----
+# 状態を表示する画面の自動更新の間隔(7.1.4)
+DASHBOARD_REFRESH_SEC: Final[int] = 10
+# collectorの最後の書き出しがこれより古ければ「停止」と表示する(8.4.4)
+COLLECTOR_HEARTBEAT_TIMEOUT_SEC: Final[int] = 30
+
 # ---- バックアップファイル(8.6) ----
 BACKUP_FORMAT_VERSION: Final[int] = 1
 # バックアップファイルの大きさの上限(バイト)(外部データの大きさの検査、11.3.3)
