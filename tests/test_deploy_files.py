@@ -6,6 +6,7 @@
 
 import ast
 import re
+import shlex
 import shutil
 import subprocess
 from pathlib import Path
@@ -13,6 +14,7 @@ from pathlib import Path
 import pytest
 
 from common import constants
+from tools import telemetry_hostctl
 
 ROOT = Path(__file__).resolve().parent.parent
 DEPLOY = ROOT / "deploy.sh"
@@ -168,6 +170,44 @@ def test_recover_script():
     assert "--network none" in script and "python -m tools.recovery" in script
     # ダウンロードしたフォルダに頼らない(決定事項 D-030)
     assert "SCRIPT_DIR" not in script and "docker compose" not in script
+
+
+def _helper_calls(script: str) -> list[list[str]]:
+    """シェルスクリプトの中の、補助プログラムの呼び出しの引数を取り出す(変数は X に置き換える)。"""
+    calls: list[list[str]] = []
+    for line in script.replace("\\\n", " ").splitlines():
+        if line.lstrip().startswith("#"):
+            continue
+        prefix: list[str] = []
+        match = re.search(r'python3 -I "?\$\{HOSTCTL(?:_SRC)?\}"? (.*)', line)
+        if match is None:
+            # deploy.sh の hostctl 関数は、--db を前に付けて補助プログラムを呼ぶ
+            match = re.search(r"(?:^|[\s(])hostctl (.*)", line)
+            prefix = ["--db", "X"]
+        if match is None or '"$@"' in match.group(1):
+            continue
+        rest = re.split(r"\|\|", match.group(1))[0]
+        rest = re.sub(r"\$\{[A-Za-z_]+\}", "X", rest)
+        calls.append(prefix + shlex.split(rest))
+    return calls
+
+
+@pytest.mark.parametrize(("script", "minimum"), [(DEPLOY, 8), (RECOVER, 1)], ids=lambda value: getattr(value, "name", ""))
+def test_helper_calls_use_valid_arguments(script, minimum):
+    """deploy.sh と復旧用コマンドの、補助プログラムの呼び出しの引数が、補助プログラムで読めること。
+
+    --db などの全体の指定は、firewall-sync などの処理の名前より前に書く必要がある(決定事項 D-034)。
+    """
+    calls = _helper_calls(text(script))
+    assert len(calls) >= minimum
+    parser = telemetry_hostctl.build_parser()
+    for tokens in calls:
+        try:
+            parser.parse_args(tokens)
+        except SystemExit:
+            pytest.fail(f"{script.name} の補助プログラムの呼び出しの引数が正しくありません:{' '.join(tokens)}")
+    if script == RECOVER:
+        assert any("firewall-sync" in tokens for tokens in calls)
 
 
 def _bash() -> str | None:

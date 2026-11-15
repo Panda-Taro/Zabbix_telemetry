@@ -344,6 +344,16 @@ def test_command_triggers_depend_on_device_trigger(nwsw):
     assert device_trigger["expression"].startswith(f"last(/{nwsw['templates'][0]['template']}/")
 
 
+def test_stale_triggers_allow_manual_close(nwsw, collector_tpl):
+    """途絶のトリガー5つは、Zabbix の画面で障害を手動で閉じられる(9.2.6.3.4、D-034)。"""
+    triggers = triggers_of(nwsw)
+    assert len(triggers) == 5
+    for trigger in triggers:
+        assert trigger["manual_close"] == "YES", trigger["name"]
+    # collector の停止のトリガーは、値が届けば自動で解決するため、対象にしない
+    assert all("manual_close" not in t for t in triggers_of(collector_tpl))
+
+
 def test_status_valuemap(nwsw, collector_tpl):
     """受信状態(機器全体と4コマンドごと)の 1 を「正常」、0 を「途絶」と表示する(D-028)。"""
     template = nwsw["templates"][0]

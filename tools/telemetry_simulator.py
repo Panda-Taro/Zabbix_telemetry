@@ -34,7 +34,7 @@ import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, TextIO
 
 # ---- 既定値 ----
 DEFAULT_PORT = 50051
@@ -353,7 +353,7 @@ def close_sockets(devices: list[DeviceSpec]) -> None:
         sock.close()
 
 
-def run(args: argparse.Namespace, out=sys.stdout) -> dict[str, int]:  # noqa: ANN001
+def run(args: argparse.Namespace, out: TextIO = sys.stdout) -> dict[str, int]:
     """指定どおりに送る。送ったパケット数などを返す。"""
     if args.devices < 1:
         raise SimulatorError("--devices は1以上にしてください")

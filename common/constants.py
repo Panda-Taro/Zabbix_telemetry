@@ -251,6 +251,9 @@ USERNAME_PATTERN: Final[str] = r"[A-Za-z0-9._-]{1,32}"
 # ---- ログ画面(7.4.6) ----
 # 1回に表示する(ダウンロードする)ログの件数の上限
 LOG_VIEW_MAX_ROWS: Final[int] = 1000
+# 動作ログを新しいものから読むとき、日時の絞り込みの開始より古い行が出てきても、この秒数までは読み続ける
+# (collector と web のログの書き出しの順序が、少しだけ前後することがあるため)
+LOG_VIEW_TIMESTAMP_SLACK_SEC: Final[int] = 300
 
 # ---- 全体設定の画面(7.4.5) ----
 # Zabbix接続テストで待つ時間(秒)

@@ -15,7 +15,14 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from common.constants import COMPONENT_COLLECTOR, COMPONENT_WEB, LOG_BACKUP_COUNT, LOG_LEVELS, LOG_VIEW_MAX_ROWS
+from common.constants import (
+    COMPONENT_COLLECTOR,
+    COMPONENT_WEB,
+    LOG_BACKUP_COUNT,
+    LOG_LEVELS,
+    LOG_VIEW_MAX_ROWS,
+    LOG_VIEW_TIMESTAMP_SLACK_SEC,
+)
 from web.dashboard import JST, parse_iso, to_jst_text
 
 LEVEL_ORDER = {name: index for index, name in enumerate(LOG_LEVELS)}
@@ -175,7 +182,7 @@ def read_operation_logs(log_dir: Path | None, flt: LogFilter, limit: int = LOG_V
     for component in (COMPONENT_COLLECTOR, COMPONENT_WEB):
         count = 0
         for entry in _newest_first(log_dir, component):
-            if flt.date_from and entry.timestamp < flt.date_from - timedelta(minutes=5):
+            if flt.date_from and entry.timestamp < flt.date_from - timedelta(seconds=LOG_VIEW_TIMESTAMP_SLACK_SEC):
                 break  # これより古いものは、条件に合わない(書き出しの順序の前後を少しだけ許す)
             if _matches(entry, flt):
                 collected.append(entry)

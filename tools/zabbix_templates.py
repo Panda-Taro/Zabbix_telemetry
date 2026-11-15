@@ -128,14 +128,20 @@ def _trapper_item(template: str, key: str, name: str, value_type: str, units: st
     return item
 
 
-def _trigger(template: str, key: str, expression: str, name: str, priority: str, description: str) -> dict[str, Any]:
-    return {
+def _trigger(
+    template: str, key: str, expression: str, name: str, priority: str, description: str, *, manual_close: bool = False
+) -> dict[str, Any]:
+    trigger = {
         "uuid": make_uuid(template, "trigger", key, expression),
         "expression": expression,
         "name": name,
         "priority": priority,
         "description": description,
     }
+    if manual_close:
+        # Zabbix の画面で、障害を手動で閉じられるようにする(9.2.6.3.4、決定事項 D-034)
+        trigger["manual_close"] = "YES"
+    return trigger
 
 
 # ======================================================================
@@ -172,7 +178,9 @@ def nwsw_template() -> dict[str, Any]:
         _trigger(
             t, KEY_DEVICE_STATUS, DEVICE_STALE_TRIGGER_EXPRESSION, DEVICE_STALE_TRIGGER_NAME, PRIORITY_DEVICE_STALE,
             "中間サーバーが、この機器からのTelemetryを途絶判定時間(既定値5分)受信していません。"
-            "Nexusの送信設定と、管理ネットワークの経路を確かめてください。",
+            "Nexusの送信設定と、管理ネットワークの経路を確かめてください。"
+            "機器の登録を削除して値が届かなくなった場合は、この障害を手動で閉じてください。",
+            manual_close=True,
         )
     ]  # fmt: skip
     items.append(status)
@@ -197,7 +205,9 @@ def nwsw_template() -> dict[str, Any]:
             f"{{HOST.NAME}}: {command} のTelemetryの受信が途絶しました", PRIORITY_COMMAND_STALE,
             f"中間サーバーが、この機器からの {command} のデータを、途絶判定時間(既定値5分)受信していません。"
             "中間サーバーの機器登録でチェックを外したコマンドは、値が送られないため、障害になりません。"
-            "機器全体の受信が途絶している間は、この障害は出ません(機器全体の途絶のトリガーに依存させている)。",
+            "機器全体の受信が途絶している間は、この障害は出ません(機器全体の途絶のトリガーに依存させている)。"
+            "チェックを外したあとも障害が残った場合は、手動で閉じてください。",
+            manual_close=True,
         )  # fmt: skip
         # 機器全体が途絶したときに、障害が5件同時に出ないよう、同じホストの機器全体の途絶のトリガーに依存させる
         trigger["dependencies"] = [{"name": DEVICE_STALE_TRIGGER_NAME, "expression": DEVICE_STALE_TRIGGER_EXPRESSION}]

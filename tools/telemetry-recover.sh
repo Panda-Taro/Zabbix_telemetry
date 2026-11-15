@@ -46,7 +46,7 @@ case "${1:-}" in
         run_tool reset-port
         if [[ -f "${HOSTCTL}" ]]; then
             # ファイアウォールが有効な場合は、8080 を開ける(無効なら何もしない)
-            python3 -I "${HOSTCTL}" firewall-sync --db "${DATA_DIR}/telemetry.db" \
+            python3 -I "${HOSTCTL}" --db "${DATA_DIR}/telemetry.db" firewall-sync \
                 || echo "注意:ファイアウォールの調整に失敗しました。sudo ufw allow ${FALLBACK_PORT}/tcp を実行してください" >&2
         fi
         docker restart "${WEB_CONTAINER}" >/dev/null

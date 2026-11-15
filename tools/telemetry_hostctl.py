@@ -60,6 +60,7 @@ from common.constants import (  # noqa: E402
     SETTING_DEFAULTS,
     SETTING_TELEMETRY_UDP_PORT,
     SETTING_WEBGUI_PORT,
+    SQLITE_BUSY_TIMEOUT_SEC,
     WEBGUI_FALLBACK_PORT,
 )
 from common.netconfig import (  # noqa: E402
@@ -414,7 +415,7 @@ def read_ports(db_path: Path) -> Ports:
     values = {key: SETTING_DEFAULTS[key] for key in (SETTING_WEBGUI_PORT, SETTING_TELEMETRY_UDP_PORT)}
     if db_path.exists():
         try:
-            conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=5)
+            conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=SQLITE_BUSY_TIMEOUT_SEC)
             try:
                 rows = conn.execute(
                     "SELECT key, value FROM settings WHERE key IN (?, ?)", (SETTING_WEBGUI_PORT, SETTING_TELEMETRY_UDP_PORT)
@@ -590,7 +591,8 @@ def _format_state(state: NetworkState) -> str:
     )
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def build_parser() -> argparse.ArgumentParser:
+    """コマンドの引数の読み取り方。全体の指定(--db など)は、処理の名前(firewall-sync など)より前に書く。"""
     parser = argparse.ArgumentParser(prog="telemetry_hostctl", description="Telemetry 中間サーバーの、本体側の補助プログラム")
     parser.add_argument("--base-dir", default=HOSTCTL_RUN_DIR, help="依頼をやり取りするフォルダ")
     parser.add_argument("--db", default=DEFAULT_DB_PATH, help="設定のデータベース")
@@ -608,7 +610,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     setnet.add_argument("--gateway", required=True)
     setnet.add_argument("--dns", nargs="*", default=[], help="DNSサーバー(1つか2つ)")
     setnet.add_argument("--check-only", action="store_true", help="入力の検査だけを行う")
-    args = parser.parse_args(argv)
+    return parser
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
 
     ctl = HostCtl(
         base_dir=Path(args.base_dir),
