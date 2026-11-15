@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}{{ "ユーザーの削除" if action == "delete" else "パスワードの初期化" }}{% endblock %}
+{% block content %}
+<h1 class="page-title">{{ "ユーザーの削除" if action == "delete" else "パスワードの初期化" }}</h1>
+<section class="panel panel-narrow">
+  {% if action == "delete" %}
+  <p class="message message-error" role="alert">ユーザー「{{ target.username }}」({{ target.role_label }})を削除します。削除すると元に戻せません。</p>
+  {% else %}
+  <p class="message message-error" role="alert">ユーザー「{{ target.username }}」({{ target.role_label }})のパスワードを初期化します。</p>
+  <p>初期化後のパスワードは、{% if target.role == "admin" %}ユーザー名と同じ文字列「{{ target.username }}」{% else %}空欄{% endif %}になります。
+    このユーザーがログイン中の場合は、ログアウトされます。{% if target.id == user.id %}自分自身のパスワードを初期化するため、初期化後にログインし直してください。{% endif %}</p>
+  {% endif %}
+  <form method="post" action="/users/{{ target.id }}/{{ action }}" class="form-actions">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}">
+    <button type="submit" class="button button-danger">{{ "削除する" if action == "delete" else "初期化する" }}</button>
+    <a class="button" href="/users">やめる</a>
+  </form>
+</section>
+{% endblock %}

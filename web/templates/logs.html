@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}{{ "動作ログ" if tab == "operation" else "変更履歴" }}{% endblock %}
+{% block content %}
+<h1 class="page-title">ログ</h1>
+<nav class="tabs" aria-label="ログの種類">
+  <a class="tab{% if tab == 'operation' %} tab-active{% endif %}" href="/logs">動作ログ</a>
+  <a class="tab{% if tab == 'audit' %} tab-active{% endif %}" href="/logs/audit">変更履歴</a>
+</nav>
+
+<section class="panel">
+  <form method="get" action="{{ '/logs' if tab == 'operation' else '/logs/audit' }}" class="filters">
+    <div class="filter">
+      <label class="form-label" for="date_from">日時(から)</label>
+      <input class="form-input" type="datetime-local" id="date_from" name="date_from" value="{{ filters.date_from }}">
+    </div>
+    <div class="filter">
+      <label class="form-label" for="date_to">日時(まで)</label>
+      <input class="form-input" type="datetime-local" id="date_to" name="date_to" value="{{ filters.date_to }}">
+    </div>
+    {% if tab == "operation" %}
+    <div class="filter">
+      <label class="form-label" for="level">ログレベル(指定したもの以上)</label>
+      <select class="form-input" id="level" name="level">
+        <option value="">すべて</option>
+        {% for level in log_levels %}<option value="{{ level }}" {% if filters.level == level %}selected{% endif %}>{{ level }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="filter">
+      <label class="form-label" for="hostname">ホスト名</label>
+      <input class="form-input" type="text" id="hostname" name="hostname" value="{{ filters.hostname }}" maxlength="128">
+    </div>
+    {% endif %}
+    <div class="filter">
+      <label class="form-label" for="keyword">キーワード</label>
+      <input class="form-input" type="text" id="keyword" name="keyword" value="{{ filters.keyword }}" maxlength="200">
+    </div>
+    <div class="filter filter-actions">
+      <button type="submit" class="button">絞り込む</button>
+      <a class="button" href="{{ '/logs' if tab == 'operation' else '/logs/audit' }}">解除</a>
+      <a class="button" href="{{ '/logs/download' if tab == 'operation' else '/logs/audit/download' }}{% if query %}?{{ query }}{% endif %}">表示中のログをダウンロード</a>
+    </div>
+  </form>
+  <p class="note">日時は日本時間です。新しいものから最大 {{ "{:,}".format(max_rows) }} 件を表示します。ダウンロードするのは、表示している内容と同じものです(CSV形式)。</p>
+  {% if truncated %}<p class="banner banner-warn">条件に合うログが {{ "{:,}".format(max_rows) }} 件を超えたため、新しいものから {{ "{:,}".format(max_rows) }} 件だけを表示しています。日時などで絞り込んでください。</p>{% endif %}
+
+  {% if entries %}
+  <div class="table-wrap">
+  {% if tab == "operation" %}
+  <table class="table">
+    <thead><tr><th>日時</th><th>ログレベル</th><th>出力元</th><th>ホスト名</th><th>内容</th></tr></thead>
+    <tbody>
+    {% for entry in entries %}
+      <tr>
+        <td class="nowrap">{{ entry.time_text }}</td>
+        <td><span class="level level-{{ entry.level|lower }}">{{ entry.level }}</span></td>
+        <td>{{ entry.component }}</td>
+        <td>{{ entry.hostname }}</td>
+        <td class="pre">{{ entry.message }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <table class="table">
+    <thead><tr><th>日時</th><th>ユーザー名</th><th>変更した画面</th><th>操作</th><th>対象</th><th>変更前の値</th><th>変更後の値</th></tr></thead>
+    <tbody>
+    {% for entry in entries %}
+      <tr>
+        <td class="nowrap">{{ entry.time_text }}</td>
+        <td>{{ entry.username }}</td>
+        <td>{{ entry.category_label }}</td>
+        <td>{{ entry.action_label }}</td>
+        <td>{{ entry.target }}</td>
+        <td class="pre json">{{ entry.before_value }}</td>
+        <td class="pre json">{{ entry.after_value }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+  </div>
+  {% else %}
+  <p class="empty">条件に合うログはありません。</p>
+  {% endif %}
+</section>
+{% endblock %}

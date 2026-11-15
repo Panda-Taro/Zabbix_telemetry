@@ -10,20 +10,22 @@ import sqlite3
 from collections.abc import Mapping
 from typing import Any
 
-from common.config_reader import list_device_identities
+from common.config_reader import get_device, list_device_identities
 from common.constants import (
     AUDIT_ACTIONS,
     AUDIT_CATEGORIES,
     AUDIT_FORBIDDEN_FIELDS,
     AUDIT_LOG_MAX_ROWS,
     INITIAL_ACCOUNTS,
+    PURPOSE_COUNTERS,
+    PURPOSE_PTP,
     SETTING_CONFIG_VERSION,
     SETTING_DEFAULTS,
 )
 from common.database import transaction
 from common.passwords import hash_password
 from common.timeutil import utc_now_iso
-from common.validation import DeviceData, DeviceForm, validate_device_form
+from common.validation import DeviceData, DeviceForm, format_interface_list, validate_device_form
 
 
 # ======================================================================
@@ -103,16 +105,39 @@ def insert_device(conn: sqlite3.Connection, data: DeviceData, now: str) -> int:
     return device_id
 
 
-def save_device(conn: sqlite3.Connection, form: DeviceForm, device_id: int | None = None) -> int:
+def device_audit_value(conn: sqlite3.Connection, device_id: int) -> dict[str, Any] | None:
+    """変更履歴に記録する、機器1台分の登録内容(8.3.6)。"""
+    record = get_device(conn, device_id)
+    if record is None:
+        return None
+    return {
+        "hostname": record.hostname,
+        "source_ip": record.source_ip,
+        **{column: int(checked) for column, checked in record.commands.items()},
+        "interfaces_counters": format_interface_list(record.interfaces.get(PURPOSE_COUNTERS, ())),
+        "interfaces_ptp": format_interface_list(record.interfaces.get(PURPOSE_PTP, ())),
+    }
+
+
+def save_device(
+    conn: sqlite3.Connection,
+    form: DeviceForm,
+    device_id: int | None = None,
+    *,
+    audit_user: str | None = None,
+) -> int:
     """画面から届いた機器の内容を検査して保存する(新規登録または編集)。
 
     検査と保存を1つのトランザクションで行い、重複の検査と保存の間に別の変更が入らないようにする。
     問題があれば ValidationError を出し、何も保存しない。保存した機器の id を返す。
+    audit_user を指定した場合は、同じトランザクションで変更履歴を記録する(LG-05)。
     """
     now = utc_now_iso()
     with transaction(conn):
+        before = None
         if device_id is not None:
-            if conn.execute("SELECT 1 FROM devices WHERE id = ?", (device_id,)).fetchone() is None:
+            before = device_audit_value(conn, device_id)
+            if before is None:
                 raise LookupError(f"機器(id={device_id})が見つかりません")
         data = validate_device_form(form, list_device_identities(conn), self_id=device_id)
 
@@ -137,17 +162,33 @@ def save_device(conn: sqlite3.Connection, form: DeviceForm, device_id: int | Non
             _insert_interfaces(conn, device_id, data)
 
         bump_config_version(conn, now)
+        if audit_user is not None:
+            insert_audit(
+                conn,
+                username=audit_user,
+                category="device",
+                action="create" if before is None else "update",
+                target=data.hostname,
+                before=before,
+                after=device_audit_value(conn, device_id),
+            )
     return device_id
 
 
-def delete_device(conn: sqlite3.Connection, device_id: int) -> bool:
+def delete_device(conn: sqlite3.Connection, device_id: int, *, audit_user: str | None = None) -> bool:
     """機器を削除する。監視対象インターフェースも一緒に削除される(8.3.2)。削除したら True。"""
     now = utc_now_iso()
     with transaction(conn):
+        before = device_audit_value(conn, device_id)
         cursor = conn.execute("DELETE FROM devices WHERE id = ?", (device_id,))
         if cursor.rowcount == 0:
             return False
         bump_config_version(conn, now)
+        if audit_user is not None and before is not None:
+            insert_audit(
+                conn, username=audit_user, category="device", action="delete", target=before["hostname"],
+                before=before, after=None,
+            )  # fmt: skip
     return True
 
 
@@ -170,15 +211,35 @@ def write_settings(conn: sqlite3.Connection, values: Mapping[str, str], now: str
         )
 
 
-def update_settings(conn: sqlite3.Connection, values: Mapping[str, str]) -> None:
+def update_settings(
+    conn: sqlite3.Connection,
+    values: Mapping[str, str],
+    *,
+    audit_user: str | None = None,
+    audit_category: str = "settings",
+) -> None:
     """検査済みの設定値を保存し、設定の版番号を1増やす(CF-01)。
 
     値は common.validation.validate_settings で検査したものを渡すこと。
+    audit_user を指定した場合は、変わった設定名と、変更前後の値を変更履歴に記録する(LG-05)。
+    値が1つも変わっていない場合は、変更履歴は記録しない。
     """
     now = utc_now_iso()
     with transaction(conn):
+        current = {row["key"]: row["value"] for row in conn.execute("SELECT key, value FROM settings")}
+        changed = {key: value for key, value in values.items() if current.get(key) != value}
         write_settings(conn, values, now)
         bump_config_version(conn, now)
+        if audit_user is not None and changed:
+            insert_audit(
+                conn,
+                username=audit_user,
+                category=audit_category,
+                action="update",
+                target=", ".join(sorted(changed)),
+                before={key: current.get(key) for key in sorted(changed)},
+                after={key: changed[key] for key in sorted(changed)},
+            )
 
 
 # ======================================================================

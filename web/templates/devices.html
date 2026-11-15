@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}機器一覧{% endblock %}
+{% block content %}
+<h1 class="page-title">機器一覧</h1>
+{% if message %}<p class="message message-ok" role="status">{{ message }}</p>{% endif %}
+<section class="panel">
+  <div class="toolbar">
+    <form method="get" action="/devices" class="toolbar-form">
+      <label class="form-label-inline" for="q">ホスト名で絞り込み</label>
+      <input class="form-input" type="text" id="q" name="q" value="{{ q }}" maxlength="128">
+      <input type="hidden" name="sort" value="{{ sort }}">
+      <button type="submit" class="button">絞り込む</button>
+      {% if q %}<a class="button" href="/devices?sort={{ sort }}">解除</a>{% endif %}
+    </form>
+    <a class="button button-primary-inline" href="/devices/new">新規登録</a>
+  </div>
+
+  {% if rows %}
+  <div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr>
+        <th><a href="/devices?q={{ q|urlencode }}&amp;sort={{ 'desc' if sort == 'asc' else 'asc' }}">ホスト名 {{ "▲" if sort == "asc" else "▼" }}</a></th>
+        <th>送信元IPアドレス</th>
+        {% for command, column in command_fields %}<th>{{ command }}</th>{% endfor %}
+        <th>監視対象インターフェース数</th>
+        <th>受信状態</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for row in rows %}
+      <tr>
+        <td>{{ row.record.hostname }}</td>
+        <td>{{ row.record.source_ip }}</td>
+        {% for command, column in command_fields %}
+        <td class="center">{% if row.record.commands[column] %}<span class="text-ok">送る</span>{% else %}<span class="text-muted">送らない</span>{% endif %}</td>
+        {% endfor %}
+        <td>帯域 {{ row.counters_count }} / PTP {{ row.ptp_count }}</td>
+        <td><span class="badge badge-{{ row.status.color }}">{{ row.status.text }}</span></td>
+        <td class="actions">
+          <a class="button button-small" href="/devices/{{ row.record.id }}/edit">編集</a>
+          <a class="button button-small button-danger" href="/devices/{{ row.record.id }}/delete">削除</a>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="empty">{% if q %}条件に合う機器はありません。{% else %}登録されている機器はありません。「新規登録」から登録してください。{% endif %}</p>
+  {% endif %}
+</section>
+{% endblock %}

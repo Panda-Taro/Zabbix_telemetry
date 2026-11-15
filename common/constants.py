@@ -239,6 +239,18 @@ SESSION_COOKIE_MAX_AGE_SEC: Final[int] = 400 * 24 * 60 * 60
 # 変更履歴に記録する、入力されたユーザー名の文字数の上限(外部データの大きさの検査、11.3.3)
 MAX_USERNAME_INPUT_LENGTH: Final[int] = 128
 
+# ---- ユーザー管理(7.4.8) ----
+# ユーザー名に使える文字と長さ(半角の英数字、ピリオド、ハイフン、アンダースコア。1〜32文字)
+USERNAME_PATTERN: Final[str] = r"[A-Za-z0-9._-]{1,32}"
+
+# ---- ログ画面(7.4.6) ----
+# 1回に表示する(ダウンロードする)ログの件数の上限
+LOG_VIEW_MAX_ROWS: Final[int] = 1000
+
+# ---- 全体設定の画面(7.4.5) ----
+# Zabbix接続テストで待つ時間(秒)
+ZABBIX_TEST_TIMEOUT_SEC: Final[float] = 5.0
+
 # ---- ダッシュボード(7.4.2) ----
 # 状態を表示する画面の自動更新の間隔(7.1.4)
 DASHBOARD_REFRESH_SEC: Final[int] = 10

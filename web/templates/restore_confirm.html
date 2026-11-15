@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}設定の復元の確認{% endblock %}
+{% block content %}
+<h1 class="page-title">設定の復元の確認</h1>
+<section class="panel panel-narrow">
+  <p class="message message-error" role="alert">
+    現在の機器の登録内容と全体設定は、すべてこのファイルの内容に置き換わります。置き換えると元に戻せません。
+  </p>
+  <p>ファイル「{{ filename }}」の検査が終わりました。内容は次のとおりです。</p>
+  <h2 class="sub-title">機器({{ summary.devices|length }} 台)</h2>
+  {% if summary.devices %}
+  <ul class="plain-list">{% for hostname in summary.devices %}<li>{{ hostname }}</li>{% endfor %}</ul>
+  {% else %}
+  <p class="empty">機器は含まれていません(復元すると、機器の登録がすべてなくなります)。</p>
+  {% endif %}
+  <h2 class="sub-title">全体設定</h2>
+  <table class="table table-compact">
+    {% for key, value in summary.settings.items() %}<tr><th>{{ key }}</th><td>{{ value if value else "(空欄)" }}</td></tr>{% endfor %}
+  </table>
+  <p class="note">ユーザー情報、本体のIPアドレス、WebGUIのポート番号は変わりません。</p>
+  <form method="post" action="/system/restore/confirm" class="form-actions">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}">
+    <input type="hidden" name="restore_token" value="{{ restore_token }}">
+    <button type="submit" class="button button-danger">復元する</button>
+    <a class="button" href="/system">やめる</a>
+  </form>
+</section>
+{% endblock %}

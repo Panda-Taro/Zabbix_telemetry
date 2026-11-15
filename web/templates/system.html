@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}システム設定{% endblock %}
+{% block content %}
+<h1 class="page-title">システム設定</h1>
+{% if message %}<p class="message message-ok" role="status">{{ message }}。10秒以内に収集エンジン(collector)へ反映します。</p>{% endif %}
+{% for error in errors %}<p class="message message-error" role="alert">{{ error }}</p>{% endfor %}
+
+<section class="panel panel-narrow">
+  <h2 class="panel-title">本体のIPアドレスとWebGUIのポート番号</h2>
+  <p class="empty">この機能は準備中です。</p>
+</section>
+
+<section class="panel panel-narrow">
+  <h2 class="panel-title">設定のバックアップ</h2>
+  <p>機器の登録内容と全体設定を、ファイルに書き出します。ユーザー情報、本体のIPアドレス、WebGUIのポート番号は含みません。</p>
+  <p class="note">機器の登録内容を変更したときは、バックアップを取り、中間サーバーの外に保管してください。</p>
+  <a class="button button-primary-inline" href="/system/backup">バックアップファイルをダウンロード</a>
+</section>
+
+<section class="panel panel-narrow">
+  <h2 class="panel-title">設定の復元</h2>
+  <p>書き出したバックアップファイルを読み込み、機器の登録内容と全体設定を戻します。次の画面で内容を確かめてから復元します。</p>
+  <form method="post" action="/system/restore" enctype="multipart/form-data" class="form">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}">
+    <label class="form-label" for="file">バックアップファイル({{ max_mb }}MBまで)</label>
+    <input class="form-input" type="file" id="file" name="file" accept=".json,application/json">
+    <button type="submit" class="button button-primary">ファイルを確かめる</button>
+  </form>
+</section>
+{% endblock %}

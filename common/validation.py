@@ -136,6 +136,25 @@ def parse_interface_list(text: str) -> tuple[InterfaceId, ...]:
     return tuple(sorted(result))
 
 
+def format_interface_list(interfaces: Iterable[InterfaceId]) -> str:
+    """インターフェース番号の一覧を、入力欄に表示する形にする(parse_interface_list の逆)。
+
+    同じスロットで続いている番号は、範囲指定にまとめる。例)1/1, 1/2, 1/3, 1/48 → 「1/1-3, 1/48」
+    """
+    items: list[str] = []
+    ordered = sorted(set(interfaces))
+    index = 0
+    while index < len(ordered):
+        start = ordered[index]
+        end = start
+        while index + 1 < len(ordered) and ordered[index + 1] == InterfaceId(start.slot, end.port + 1):
+            index += 1
+            end = ordered[index]
+        items.append(start.ifnum if end == start else f"{start.ifnum}-{end.port}")
+        index += 1
+    return ", ".join(items)
+
+
 # ======================================================================
 # ホスト名と送信元IPアドレス(7.4.4.3)
 # ======================================================================

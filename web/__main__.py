@@ -37,7 +37,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     logger = setup_logging(COMPONENT_WEB, Path(args.log_dir))
-    app = create_app(args.db, logger)
+    app = create_app(args.db, logger, log_dir=Path(args.log_dir))
     port = args.port
     if port is None:
         conn = connect(args.db)

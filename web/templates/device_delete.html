@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}機器の削除{% endblock %}
+{% block content %}
+<h1 class="page-title">機器の削除</h1>
+<section class="panel panel-narrow">
+  <p class="message message-error" role="alert">次の機器を削除します。削除すると元に戻せません。</p>
+  <table class="table table-compact">
+    <tr><th>ホスト名</th><td>{{ record.hostname }}</td></tr>
+    <tr><th>送信元IPアドレス</th><td>{{ record.source_ip }}</td></tr>
+  </table>
+  <p class="note">削除すると、この機器から届くデータは「未登録の送信元」として破棄されます。Zabbix側のホストとアイテムは削除されません。</p>
+  <form method="post" action="/devices/{{ record.id }}/delete" class="form-actions">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}">
+    <button type="submit" class="button button-danger">削除する</button>
+    <a class="button" href="/devices">やめる</a>
+  </form>
+</section>
+{% endblock %}

@@ -26,7 +26,7 @@ from datetime import datetime
 from typing import Any
 
 from common.config_reader import get_settings, list_devices
-from common.config_writer import bump_config_version, insert_device, write_settings
+from common.config_writer import bump_config_version, insert_audit, insert_device, write_settings
 from common.constants import (
     BACKUP_EXCLUDED_SETTINGS,
     BACKUP_FORMAT_VERSION,
@@ -275,23 +275,60 @@ def parse_backup(raw: bytes) -> BackupContent:
 # ======================================================================
 
 
-def restore_backup(conn: sqlite3.Connection, content: BackupContent) -> None:
+def _current_summary(conn: sqlite3.Connection) -> dict[str, Any]:
+    """変更履歴に記録する、今の機器登録と全体設定の要約。"""
+    settings = get_settings(conn)
+    return {
+        "devices": [record.hostname for record in list_devices(conn)],
+        "settings": {key: settings.get(key) for key in BACKUP_SETTING_KEYS},
+    }
+
+
+def content_summary(content: BackupContent) -> dict[str, Any]:
+    """変更履歴と確認画面に使う、バックアップの内容の要約。"""
+    return {
+        "devices": sorted(data.hostname for data in content.devices),
+        "settings": {key: content.settings.get(key) for key in BACKUP_SETTING_KEYS},
+    }
+
+
+def restore_backup(
+    conn: sqlite3.Connection,
+    content: BackupContent,
+    *,
+    audit_user: str | None = None,
+    audit_target: str | None = None,
+) -> None:
     """検査済みのバックアップの内容で、機器の登録内容と全体設定を置き換える(7.4.7.7)。
 
     すべてを1つのトランザクションで行い、途中で失敗した場合は何も変更しない(8.6.4)。
     ユーザー、WebGUIのポート番号などは変えない(7.4.7.6)。設定の版番号は1増やす(CF-01)。
+    audit_user を指定した場合は、同じトランザクションで変更履歴を記録する(BK-05)。
     """
     now = utc_now_iso()
     with transaction(conn):
+        before = _current_summary(conn) if audit_user is not None else None
         conn.execute("DELETE FROM devices")  # 監視対象インターフェースも一緒に削除される
         for data in content.devices:
             insert_device(conn, data, now)
         write_settings(conn, content.settings, now)
         bump_config_version(conn, now)
+        if audit_user is not None:
+            insert_audit(
+                conn,
+                username=audit_user,
+                category="restore",
+                action="restore",
+                target=audit_target,
+                before=before,
+                after=content_summary(content),
+            )
 
 
-def restore_backup_bytes(conn: sqlite3.Connection, raw: bytes) -> BackupContent:
+def restore_backup_bytes(
+    conn: sqlite3.Connection, raw: bytes, *, audit_user: str | None = None, audit_target: str | None = None
+) -> BackupContent:
     """バックアップファイルを検査し、問題がなければ復元する。問題があれば何も変更せずに BackupError。"""
     content = parse_backup(raw)
-    restore_backup(conn, content)
+    restore_backup(conn, content, audit_user=audit_user, audit_target=audit_target)
     return content

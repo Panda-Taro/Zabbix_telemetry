@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}{{ "機器の編集" if device_id else "機器の新規登録" }}{% endblock %}
+{% macro field_errors(name) %}
+  {% for error in errors.get(name, []) %}<p class="field-error" role="alert">{{ error }}</p>{% endfor %}
+{% endmacro %}
+{% block content %}
+<h1 class="page-title">{{ "機器の編集" if device_id else "機器の新規登録" }}</h1>
+{% if errors %}<p class="message message-error" role="alert">入力内容に問題があります。赤い文字の説明を確かめてください。保存はしていません。</p>{% endif %}
+<form method="post" action="{{ '/devices/%d/edit' % device_id if device_id else '/devices/new' }}" class="panel form form-wide">
+  <input type="hidden" name="csrf" value="{{ csrf_token }}">
+
+  <h2 class="panel-title">1. 基本情報</h2>
+  <label class="form-label" for="hostname">ホスト名</label>
+  <input class="form-input" type="text" id="hostname" name="hostname" value="{{ values.hostname }}" maxlength="200">
+  <p class="note">NexusとZabbixに登録したホスト名と、大文字・小文字まで同じにしてください。使える文字は、半角の英数字、ピリオド、ハイフン、アンダースコア、空白です(128文字まで)。</p>
+  {{ field_errors("hostname") }}
+
+  <label class="form-label" for="source_ip">送信元IPアドレス</label>
+  <input class="form-input" type="text" id="source_ip" name="source_ip" value="{{ values.source_ip }}" maxlength="64">
+  <p class="note">Nexusの管理ポート(mgmt0)のIPアドレスです。例:192.0.2.1</p>
+  {{ field_errors("source_ip") }}
+
+  <h2 class="panel-title">2. Zabbixへ送るコマンド</h2>
+  {% for command, column in command_fields %}
+  <label class="checkbox">
+    <input type="checkbox" name="{{ column }}" value="1" {% if values.commands.get(column) %}checked{% endif %}
+      {% if column == "cmd_counters_brief" %}data-controls="interfaces_counters"{% elif column == "cmd_ptp_brief" %}data-controls="interfaces_ptp"{% endif %}>
+    {{ command }}
+  </label>
+  {% endfor %}
+  {{ field_errors("commands") }}
+
+  <h2 class="panel-title">3. 監視対象インターフェース番号</h2>
+  <label class="form-label" for="interfaces_counters">show interface counters brief 用(帯域)</label>
+  <input class="form-input" type="text" id="interfaces_counters" name="interfaces_counters" value="{{ values.interfaces_counters }}" maxlength="4096"
+    {% if not values.commands.get("cmd_counters_brief") %}disabled{% endif %}>
+  {{ field_errors("interfaces.counters") }}
+
+  <label class="form-label" for="interfaces_ptp">show ptp brief 用(PTPポート状態)</label>
+  <input class="form-input" type="text" id="interfaces_ptp" name="interfaces_ptp" value="{{ values.interfaces_ptp }}" maxlength="4096"
+    {% if not values.commands.get("cmd_ptp_brief") %}disabled{% endif %}>
+  {{ field_errors("interfaces.ptp") }}
+  {{ field_errors("interfaces") }}
+  <p class="note">
+    「スロット番号/ポート番号」で入力します。カンマ区切り(例:1/1, 1/2, 1/48)と範囲指定(例:1/1-4)が使えます。
+    スロット番号は1〜99、ポート番号は1〜256です。チェックを外したコマンドの番号は、保存すると消えます。
+  </p>
+
+  <div class="form-actions">
+    <button type="submit" class="button button-primary">保存する</button>
+    <a class="button" href="/devices">戻る</a>
+  </div>
+  <p class="note">保存すると、10秒以内に収集エンジン(collector)へ反映し、Zabbixへインターフェースの一覧を送り直します。</p>
+</form>
+{% endblock %}

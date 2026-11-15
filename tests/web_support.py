@@ -43,9 +43,9 @@ def free_tcp_port() -> int:
 class WebServer:
     """テスト用に WebGUI を起動する。"""
 
-    def __init__(self, db_path: Path, now: FakeNow) -> None:
+    def __init__(self, db_path: Path, now: FakeNow, log_dir: Path | None = None) -> None:
         self.port = free_tcp_port()
-        self.app = create_app(db_path, logging.getLogger("web-test"), now=now)
+        self.app = create_app(db_path, logging.getLogger("web-test"), now=now, log_dir=log_dir)
         config = uvicorn.Config(self.app, host="127.0.0.1", port=self.port, log_config=None, access_log=False)
         self.server = uvicorn.Server(config)
         self.thread = threading.Thread(target=self.server.run, daemon=True)
@@ -119,6 +119,37 @@ class Browser:
             method="POST",
         )
         return self._open(request)
+
+    def post_file(self, path: str, data: dict[str, str], field: str, filename: str, content: bytes) -> Page:
+        """ファイルを添えて送る(multipart/form-data)。"""
+        boundary = "----telemetry-test-boundary"
+        parts: list[bytes] = []
+        for name, value in data.items():
+            parts.append(
+                f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{value}\r\n'.encode("utf-8")
+            )
+        parts.append(
+            f'--{boundary}\r\nContent-Disposition: form-data; name="{field}"; filename="{filename}"\r\n'
+            "Content-Type: application/json\r\n\r\n".encode("utf-8")
+            + content
+            + b"\r\n"
+        )
+        parts.append(f"--{boundary}--\r\n".encode("utf-8"))
+        request = urllib.request.Request(
+            self.base_url + path,
+            data=b"".join(parts),
+            headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+            method="POST",
+        )
+        return self._open(request)
+
+    def raw(self, path: str) -> tuple[int, dict[str, str], bytes]:
+        """応答をバイト列のまま受け取る(ダウンロードの確認用)。"""
+        try:
+            response = self.opener.open(urllib.request.Request(self.base_url + path), timeout=10)
+        except urllib.error.HTTPError as error:
+            response = error
+        return response.status, {k.lower(): v for k, v in response.headers.items()}, response.read()
 
     def cookie(self, name: str) -> str | None:
         for cookie in self.cookies:

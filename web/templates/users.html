@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}ユーザー管理{% endblock %}
+{% block content %}
+<h1 class="page-title">ユーザー管理</h1>
+{% if message %}<p class="message message-ok" role="status">{{ message }}</p>{% endif %}
+{% for error in errors %}<p class="message message-error" role="alert">{{ error }}</p>{% endfor %}
+
+<section class="panel">
+  <h2 class="panel-title">ユーザーの一覧</h2>
+  <table class="table">
+    <thead><tr><th>ユーザー名</th><th>権限</th><th>状態</th><th>権限の変更</th><th>操作</th></tr></thead>
+    <tbody>
+    {% for row in users %}
+      <tr>
+        <td>{{ row.username }}{% if row.id == user.id %} <span class="badge badge-muted">ログイン中</span>{% endif %}</td>
+        <td>{{ row.role_label }}</td>
+        <td>
+          {% if row.is_initial_password %}<span class="badge badge-warn">初期パスワードのまま</span>{% endif %}
+          {% if row.locked_until and row.locked_until > now_iso %}<span class="badge badge-error">ログインできない期間中</span>{% endif %}
+        </td>
+        <td>
+          <form method="post" action="/users/{{ row.id }}/role" class="inline-form">
+            <input type="hidden" name="csrf" value="{{ csrf_token }}">
+            <select class="form-input form-input-small" name="role" aria-label="{{ row.username }} の権限">
+              {% for value, label in role_labels.items() %}<option value="{{ value }}" {% if row.role == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+            <button type="submit" class="button button-small">変更</button>
+          </form>
+        </td>
+        <td class="actions">
+          <a class="button button-small" href="/users/{{ row.id }}/reset">パスワードの初期化</a>
+          {% if row.id != user.id %}<a class="button button-small button-danger" href="/users/{{ row.id }}/delete">削除</a>{% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="note">管理者が1人もいなくなる操作(最後の管理者の削除や、閲覧者への変更)と、ログイン中の自分自身の削除はできません。パスワードが空欄の閲覧者は、先にパスワードを設定してから管理者に変更してください。</p>
+</section>
+
+<section class="panel panel-narrow">
+  <h2 class="panel-title">ユーザーの追加</h2>
+  <form method="post" action="/users/new" class="form">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}">
+    <label class="form-label" for="new-username">ユーザー名</label>
+    <input class="form-input" type="text" id="new-username" name="username" value="{{ form.username }}" maxlength="64" autocomplete="off">
+    <p class="note">半角の英数字、ピリオド(.)、ハイフン(-)、アンダースコア(_)で、1〜32文字</p>
+    <label class="form-label" for="new-role">権限</label>
+    <select class="form-input" id="new-role" name="role">
+      {% for value, label in role_labels.items() %}<option value="{{ value }}" {% if form.role == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <label class="form-label" for="new-password">パスワード</label>
+    <input class="form-input" type="password" id="new-password" name="password" autocomplete="new-password">
+    <p class="note">管理者のパスワードは、空欄にできません。閲覧者のパスワードは、空欄にもできます。</p>
+    <button type="submit" class="button button-primary">追加する</button>
+  </form>
+</section>
+{% endblock %}

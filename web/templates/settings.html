@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}全体設定{% endblock %}
+{% block content %}
+<h1 class="page-title">全体設定</h1>
+{% if message %}<p class="message message-ok" role="status">{{ message }}。10秒以内に収集エンジン(collector)へ反映します。</p>{% endif %}
+{% if errors %}<p class="message message-error" role="alert">入力内容に問題があります。赤い文字の説明を確かめてください。保存はしていません。</p>{% endif %}
+<form method="post" action="/settings" class="panel form form-wide" id="settings-form">
+  <input type="hidden" name="csrf" value="{{ csrf_token }}">
+  {% for field in fields %}
+    <label class="form-label" for="{{ field.key }}">{{ field.label }}</label>
+    {% if field.key == "log_level" %}
+    <select class="form-input" id="{{ field.key }}" name="{{ field.key }}">
+      {% for level in log_levels %}<option value="{{ level }}" {% if values.get(field.key) == level %}selected{% endif %}>{{ level }}</option>{% endfor %}
+    </select>
+    {% else %}
+    <input class="form-input" type="text" id="{{ field.key }}" name="{{ field.key }}" value="{{ values.get(field.key, '') }}" maxlength="64">
+    {% endif %}
+    <p class="note">{{ field.note }}</p>
+    {% for error in errors.get(field.key, []) %}<p class="field-error" role="alert">{{ error }}</p>{% endfor %}
+    {% if field.key == "zabbix_port" %}
+    <div class="zabbix-test">
+      <button type="button" class="button" hx-post="/settings/zabbix-test" hx-include="#settings-form" hx-target="#zabbix-test-result">Zabbix接続テスト</button>
+      <span class="note">入力中のIPアドレスとポート番号で、Zabbixに接続できるかを確かめます(保存はしません)。</span>
+      <div id="zabbix-test-result" aria-live="polite"></div>
+    </div>
+    {% endif %}
+  {% endfor %}
+  <div class="form-actions">
+    <button type="submit" class="button button-primary">保存する</button>
+  </div>
+</form>
+{% endblock %}
