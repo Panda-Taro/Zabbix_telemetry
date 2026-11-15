@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}システム設定の確認{% endblock %}
+{% block content %}
+<h1 class="page-title">システム設定の確認</h1>
+<section class="panel panel-narrow" role="alertdialog" aria-labelledby="confirm-title">
+  <h2 class="panel-title" id="confirm-title">保存して、中間サーバーを再起動しますか</h2>
+  <div class="banner banner-warn" role="alert">
+    <p>保存すると、すぐに中間サーバーを再起動します。</p>
+    <p>再起動の間({{ downtime }})は、監視データが失われます(Telemetryの受信とZabbixへの送信が止まります)。</p>
+    <p>現在のWebGUIの接続は切れます。</p>
+    {% if change.network %}
+    <p>本体のIPアドレスを変えるため、全Nexusの送信先(Telemetryの送信先のIPアドレス)と、Zabbix側の受け付け設定(中間サーバーのIPアドレス)も変える必要があります。</p>
+    {% endif %}
+  </div>
+
+  <h3 class="sub-title">変更する内容</h3>
+  <table class="table table-compact">
+    <tr><th></th><th>今</th><th>変更後</th></tr>
+    {% if change.network %}
+    <tr><th>IPアドレス/プレフィックス長</th><td>{{ state.address if state and state.address else "(不明)" }}</td><td>{{ change.network.address }}</td></tr>
+    <tr><th>デフォルトゲートウェイ</th><td>{{ state.gateway if state and state.gateway else "(不明)" }}</td><td>{{ change.network.gateway }}</td></tr>
+    <tr><th>DNSサーバー</th><td>{{ state.dns|join(" ") if state and state.dns else "(不明)" }}</td><td>{{ change.network.dns|join(" ") }}</td></tr>
+    {% endif %}
+    {% if change.webgui_port is not none %}
+    <tr><th>WebGUIのポート番号</th><td>{{ saved_port }}</td><td>{{ change.webgui_port }}</td></tr>
+    {% endif %}
+  </table>
+
+  <h3 class="sub-title">再起動のあとの接続先</h3>
+  <p class="new-url">{{ new_url }}</p>
+  <p class="note">再起動が終わったら({{ downtime }}後)、このURLを開いてください。</p>
+
+  <form method="post" action="/system/host/confirm" class="form-actions">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}">
+    {% for key, value in change.form.items() %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endfor %}
+    <button type="submit" class="button button-danger">保存して再起動する</button>
+    <a class="button" href="/system">キャンセル</a>
+  </form>
+  <p class="note">「キャンセル」を押すと、何も保存しません。</p>
+</section>
+{% endblock %}

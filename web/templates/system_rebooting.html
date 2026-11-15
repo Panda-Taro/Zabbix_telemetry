@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}再起動しています{% endblock %}
+{% block content %}
+<h1 class="page-title">中間サーバーを再起動しています</h1>
+<section class="panel panel-narrow">
+  <p class="message message-ok" role="status">設定を保存しました。まもなく中間サーバーを再起動します。</p>
+  <p>再起動が終わったら({{ downtime }}後)、次のURLを開いてください。</p>
+  <p class="new-url"><a href="{{ new_url }}">{{ new_url }}</a></p>
+  <p class="note">開けない場合は、しばらく待ってから開き直してください。それでも開けない場合は、中間サーバーのコンソールで復旧用コマンドを使ってください。</p>
+</section>
+{% endblock %}

@@ -105,8 +105,13 @@ SETTING_DEFAULTS: Final[dict[str, str]] = {
 }
 
 LOG_LEVELS: Final[tuple[str, ...]] = ("DEBUG", "INFO", "WARNING", "ERROR")
+# 接続先のポート番号(Zabbixサーバー)として受け付ける範囲
 TCP_UDP_PORT_MIN: Final[int] = 1
 TCP_UDP_PORT_MAX: Final[int] = 65535
+# 本システムが待ち受けるポート番号(WebGUI、Telemetryの受信)として受け付ける範囲。
+# コンテナの中のプログラムは管理者でない利用者として動かすため、1023以下は使えない(決定事項 D-030)
+LISTEN_PORT_MIN: Final[int] = 1024
+LISTEN_PORT_MAX: Final[int] = 65535
 # 時間・件数の設定で受け付ける範囲(最小, 最大)(決定事項 D-005)
 SETTING_RANGES: Final[dict[str, tuple[int, int]]] = {
     SETTING_STALE_TIMEOUT_SEC: (30, 3_600),
@@ -256,6 +261,51 @@ ZABBIX_TEST_TIMEOUT_SEC: Final[float] = 5.0
 DASHBOARD_REFRESH_SEC: Final[int] = 10
 # collectorの最後の書き出しがこれより古ければ「停止」と表示する(8.4.4)
 COLLECTOR_HEARTBEAT_TIMEOUT_SEC: Final[int] = 30
+
+# ---- システム設定の画面(7.4.7、決定事項 D-029) ----
+# 保存されたWebGUIのポート番号で待ち受けられなかったときに使うポート番号(既定値の8080)
+WEBGUI_FALLBACK_PORT: Final[int] = int(SETTING_DEFAULTS[SETTING_WEBGUI_PORT])
+# 再起動の間、監視データが失われる時間の目安(確認の画面に表示する)
+REBOOT_DOWNTIME_TEXT: Final[str] = "1〜2分程度"
+# 復旧用コマンドの操作を、変更履歴に記録するときのユーザー名(決定事項 D-030)
+RECOVERY_AUDIT_USER: Final[str] = "(復旧用コマンド)"
+
+# ======================================================================
+# 本体側の補助プログラム(tools/telemetry_hostctl.py、決定事項 D-029)
+# ======================================================================
+# web と補助プログラムが依頼をやり取りするフォルダ(本体側)。web コンテナには HOSTCTL_DIR_IN_CONTAINER として見せる
+HOSTCTL_RUN_DIR: Final[str] = "/run/telemetry-hostctl"
+HOSTCTL_DIR_IN_CONTAINER: Final[str] = "/hostctl"
+# 上のフォルダの中のフォルダ。web は spool に書いてから inbox へ移す(書きかけを読まれないようにするため)
+HOSTCTL_SPOOL: Final[str] = "spool"
+HOSTCTL_INBOX: Final[str] = "inbox"
+HOSTCTL_RESULTS: Final[str] = "results"
+HOSTCTL_STATE: Final[str] = "state"
+# 補助プログラムが書く、本体のネットワークの現在の状態のファイル名(state フォルダの中)
+HOSTCTL_NETWORK_STATE_FILE: Final[str] = "network.json"
+# 補助プログラムが自分の記録(開けたポート番号、設定ファイルの控え)を置くフォルダ
+HOSTCTL_STATE_DIR: Final[str] = "/var/lib/telemetry-hostctl"
+# 依頼のファイルの大きさの上限(バイト)(外部データの大きさの検査、11.3.3)
+HOSTCTL_MAX_REQUEST_BYTES: Final[int] = 4096
+# web が、補助プログラムの受け付けの返事を待つ時間(秒)
+HOSTCTL_ACK_TIMEOUT_SEC: Final[float] = 10.0
+# これより古い依頼は、補助プログラムが処理せずに捨てる(秒)
+HOSTCTL_REQUEST_MAX_AGE_SEC: Final[float] = 30.0
+# 再起動の依頼を受け付けてから、再起動するまでの時間(秒)。web が画面を返し終えるのを待つため
+HOSTCTL_REBOOT_DELAY_SEC: Final[float] = 5.0
+# 処理の結果のファイルを残しておく時間(秒)
+HOSTCTL_RESULT_TTL_SEC: Final[float] = 600.0
+# 補助プログラムが外部のコマンド(ip、ufw、netplan など)の終了を待つ時間(秒)
+HOSTCTL_COMMAND_TIMEOUT_SEC: Final[float] = 60.0
+# 補助プログラムが書く netplan の設定ファイルの名前(/etc/netplan の中)
+HOSTCTL_NETPLAN_FILE: Final[str] = "90-telemetry.yaml"
+# コンテナの中のプログラムを動かす利用者の番号(docker-compose.yml、Dockerfile、deploy.sh と同じ値)
+CONTAINER_UID: Final[int] = 10001
+
+# ---- 本体のIPアドレスの入力の決まり(決定事項 D-030) ----
+NETWORK_PREFIX_MIN: Final[int] = 8
+NETWORK_PREFIX_MAX: Final[int] = 30
+NETWORK_DNS_MAX: Final[int] = 2
 
 # ---- バックアップファイル(8.6) ----
 BACKUP_FORMAT_VERSION: Final[int] = 1

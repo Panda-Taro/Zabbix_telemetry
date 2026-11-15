@@ -16,6 +16,7 @@ from common.config_writer import seed_initial_data
 from common.constants import SYSTEM_NAME
 from common.database import connect, initialize_schema
 from web.context import WEB_DIR, CsrfError, Forbidden, NotAuthenticated, WebContext
+from web.hostctl import HostCtlClient
 from web.pages import account, devices, logs, settings, system, users
 
 # 画面からの応答に付ける、セキュリティのための指定(11.3.3)
@@ -37,10 +38,14 @@ def create_app(
     *,
     now: Callable[[], datetime] = lambda: datetime.now(UTC),
     log_dir: Path | None = None,
+    hostctl: HostCtlClient | None = None,
+    listen_port: int | None = None,
 ) -> FastAPI:
     """WebGUI のアプリを作る。データベースの準備(テーブルと初期データ)もここで行う(D-012)。
 
     log_dir は、ログ画面で読む動作ログのフォルダ(8.1.2)。
+    hostctl は、本体側の補助プログラムへの依頼の出し方(D-029)。指定しなければ、補助プログラムなしとして動く。
+    listen_port は、実際に待ち受けているWebGUIのポート番号(システム設定の画面の表示に使う)。
     """
     conn = connect(db_path)
     try:
@@ -51,7 +56,7 @@ def create_app(
 
     app = FastAPI(title=SYSTEM_NAME, docs_url=None, redoc_url=None, openapi_url=None)
     app.mount("/static", StaticFiles(directory=WEB_DIR / "static"), name="static")
-    ctx = WebContext(db_path, logger, now, log_dir)
+    ctx = WebContext(db_path, logger, now, log_dir, hostctl, listen_port)
 
     @app.exception_handler(NotAuthenticated)
     async def handle_not_authenticated(request: Request, exc: NotAuthenticated) -> Response:

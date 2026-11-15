@@ -134,11 +134,11 @@ def initial_password_for(username: str, role: str) -> str:
     return username if role == ROLE_ADMIN else ""
 
 
-def reset_password(conn: sqlite3.Connection, actor: CurrentUser, user_id: int) -> list[str]:
-    """パスワードを初期化する(7.4.8.4、UI-22)。
+def reset_password(conn: sqlite3.Connection, actor_name: str, user_id: int) -> list[str]:
+    """パスワードを初期化する(7.4.8.4、UI-22)。actor_name は、変更履歴に記録する操作した人の名前。
 
     初期化したユーザーは「初期パスワードのまま」として扱い、ログイン中のセッションを無効にする(AU-10)。
-    ログインできない期間中だった場合は、それも解除する。
+    ログインできない期間中だった場合は、それも解除する。復旧用コマンド(7.4.7.5)からも使う。
     """
     user = get_user(conn, user_id)
     if user is None:
@@ -152,7 +152,7 @@ def reset_password(conn: sqlite3.Connection, actor: CurrentUser, user_id: int) -
         )
         conn.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
         insert_audit(
-            conn, username=actor.username, category="user", action="update", target=user.username,
+            conn, username=actor_name, category="user", action="update", target=user.username,
             after={"password_reset": True},
         )  # fmt: skip
     return []

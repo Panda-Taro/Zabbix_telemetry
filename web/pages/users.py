@@ -138,7 +138,7 @@ def register(app: FastAPI, ctx: WebContext) -> None:
         db: sqlite3.Connection = Depends(ctx.get_db),
     ) -> Response:
         ctx.verify_csrf(user, csrf)
-        errors = reset_password(db, user, user_id)
+        errors = reset_password(db, user.username, user_id)
         if errors:
             return users_page(request, user, db, errors, status_code=400)
         if user_id == user.id:

@@ -1,0 +1,17 @@
+# コンテナのビルドに使わないもの
+.git
+.venv
+venv
+data
+docs
+docs_local
+tests
+zabbix_templates
+CLAUDE.md
+**/__pycache__
+**/*.pyc
+.pytest_cache
+*.db
+*.db-wal
+*.db-shm
+*.log

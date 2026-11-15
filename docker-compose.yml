@@ -1,0 +1,63 @@
+# Telemetry 中間サーバーの Docker Compose の構成ファイル(DL-02)
+#
+# - collector(収集エンジン)と web(WebGUI)を、別々のコンテナとして動かす(OP-01)
+# - ネットワークはホストネットワークモード。送信元のIPアドレスをそのまま扱うため(4.1.2)
+# - OSの起動時と、異常終了したときに、自動で起動し直す(restart: always。OP-02、OP-03)
+# - データベースとログは、本体の /data に置き、コンテナを作り直しても消えないようにする(OP-05)
+# - コンテナの中のプログラムは、管理者でない利用者(10001)として、追加の権限なしで動かす(決定事項 D-030)
+# - web は、本体側の補助プログラムとやり取りするフォルダだけを、追加で使う(決定事項 D-029)
+#
+# 導入と更新は deploy.sh で行う。手で動かす場合は、このファイルのあるフォルダで
+#   sudo docker compose up -d --build
+
+name: telemetry
+
+services:
+  collector:
+    build:
+      context: .
+      dockerfile: collector/Dockerfile
+    image: telemetry-collector:latest
+    container_name: telemetry-collector
+    network_mode: host
+    restart: always
+    user: "10001:10001"
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - /data:/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    image: telemetry-web:latest
+    container_name: telemetry-web
+    network_mode: host
+    restart: always
+    user: "10001:10001"
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - /data:/data
+      - /run/telemetry-hostctl:/hostctl
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

@@ -1,0 +1,5 @@
+# Ubuntu で動かすファイルは、改行を LF に固定する(Windows で編集しても、Ubuntu で動くようにするため)
+*.sh text eol=lf
+Dockerfile text eol=lf
+docker-compose.yml text eol=lf
+tools/telemetry_hostctl.py text eol=lf

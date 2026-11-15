@@ -191,3 +191,7 @@ a.button { display: inline-block; text-decoration: none; }
   padding: 24px;
 }
 .login-title { font-size: 18px; margin: 0 0 16px; text-align: center; }
+
+/* システム設定(7.4.7) */
+.banner p { margin: 4px 0; }
+.new-url { font-family: Consolas, "Courier New", monospace; font-size: 16px; word-break: break-all; }

@@ -36,10 +36,13 @@ from common.constants import (
     SETTING_ZABBIX_SERVER,
     SLOT_MAX,
     SLOT_MIN,
+    LISTEN_PORT_MAX,
+    LISTEN_PORT_MIN,
     TCP_UDP_PORT_MAX,
     TCP_UDP_PORT_MIN,
 )
 from common.interfaces import InterfaceId
+from common.netconfig import REJECTED_IPV4_TEXT, is_rejected_ipv4
 
 # エラーの文言に入力をそのまま入れるときの、文字数の上限
 _ECHO_MAX_LENGTH = 20
@@ -200,14 +203,6 @@ def normalize_ipv4(text: str) -> str:
     return str(address)
 
 
-# 送信元IPアドレスとして受け付けないアドレス(決定事項 D-007)
-_REJECTED_SOURCE_NETWORKS = (
-    ipaddress.IPv4Network("0.0.0.0/32"),
-    ipaddress.IPv4Network("127.0.0.0/8"),
-    ipaddress.IPv4Network("255.255.255.255/32"),
-    ipaddress.IPv4Network("224.0.0.0/4"),  # マルチキャスト(224.0.0.0〜239.255.255.255)
-)
-
 
 def normalize_source_ip(text: str) -> str:
     """機器の送信元IPアドレスを検査し、標準の表記にして返す。正しくなければ ValueError。
@@ -216,11 +211,8 @@ def normalize_source_ip(text: str) -> str:
     """
     normalized = normalize_ipv4(text)
     address = ipaddress.IPv4Address(normalized)
-    if any(address in network for network in _REJECTED_SOURCE_NETWORKS):
-        raise ValueError(
-            "このIPアドレスは、機器の送信元としては使えません"
-            "(0.0.0.0、127.x.x.x、255.255.255.255、224.0.0.0〜239.255.255.255 は使えません)"
-        )
+    if is_rejected_ipv4(address):  # 決定事項 D-007
+        raise ValueError(f"このIPアドレスは、機器の送信元としては使えません({REJECTED_IPV4_TEXT})")
     return normalized
 
 
@@ -388,7 +380,13 @@ def _check_integer(text: str, minimum: int, maximum: int, label: str) -> str:
 
 
 def _check_port(label: str) -> Callable[[str], str]:
+    """接続先のポート番号(1〜65535)。"""
     return lambda text: _check_integer(text, TCP_UDP_PORT_MIN, TCP_UDP_PORT_MAX, label)
+
+
+def _check_listen_port(label: str) -> Callable[[str], str]:
+    """本システムが待ち受けるポート番号(1024〜65535。決定事項 D-030)。"""
+    return lambda text: _check_integer(text, LISTEN_PORT_MIN, LISTEN_PORT_MAX, label)
 
 
 def _check_ranged(key: str, label: str) -> Callable[[str], str]:
@@ -420,13 +418,13 @@ def _check_config_version(text: str) -> str:
 _SETTING_CHECKERS = {
     SETTING_ZABBIX_SERVER: _check_zabbix_server,
     SETTING_ZABBIX_PORT: _check_port("Zabbixサーバーのポート番号"),
-    SETTING_TELEMETRY_UDP_PORT: _check_port("Telemetryの受信ポート番号"),
+    SETTING_TELEMETRY_UDP_PORT: _check_listen_port("Telemetryの受信ポート番号"),
     SETTING_STALE_TIMEOUT_SEC: _check_ranged(SETTING_STALE_TIMEOUT_SEC, "途絶判定時間(秒)"),
     SETTING_SELF_MONITOR_INTERVAL_SEC: _check_ranged(SETTING_SELF_MONITOR_INTERVAL_SEC, "自己監視値の送信間隔(秒)"),
     SETTING_LLD_INTERVAL_SEC: _check_ranged(SETTING_LLD_INTERVAL_SEC, "LLD用データの定期送信間隔(秒)"),
     SETTING_QUEUE_MAX_SIZE: _check_ranged(SETTING_QUEUE_MAX_SIZE, "送信待ちキューの上限(件)"),
     SETTING_LOG_LEVEL: _check_log_level,
-    SETTING_WEBGUI_PORT: _check_port("WebGUIのポート番号"),
+    SETTING_WEBGUI_PORT: _check_listen_port("WebGUIのポート番号"),
     SETTING_CONFIG_VERSION: _check_config_version,
 }
 if set(_SETTING_CHECKERS) != set(SETTING_DEFAULTS):

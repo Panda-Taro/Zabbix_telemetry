@@ -18,6 +18,7 @@ from fastapi.responses import HTMLResponse, Response
 from common.constants import DASHBOARD_REFRESH_SEC, SESSION_COOKIE_MAX_AGE_SEC, SESSION_COOKIE_NAME, SYSTEM_NAME
 from common.database import connect
 from web.auth import CurrentUser, check_csrf, csrf_token_for, find_session_user
+from web.hostctl import HostCtlClient
 
 WEB_DIR = Path(__file__).resolve().parent
 
@@ -61,11 +62,17 @@ class WebContext:
         logger: logging.Logger,
         now: Callable[[], datetime],
         log_dir: Path | None,
+        hostctl: HostCtlClient | None = None,
+        listen_port: int | None = None,
     ) -> None:
         self.db_path = db_path
         self.logger = logger
         self.now = now
         self.log_dir = log_dir
+        # 本体側の補助プログラムへの依頼の出し方(決定事項 D-029)
+        self.hostctl = hostctl or HostCtlClient(None)
+        # 実際に待ち受けているWebGUIのポート番号(分からないときは None)
+        self.listen_port = listen_port
         self.templates = jinja2.Environment(
             loader=jinja2.FileSystemLoader(WEB_DIR / "templates"),
             autoescape=True,  # 画面に表示する文字列は、すべて無害化する(11.3.3)

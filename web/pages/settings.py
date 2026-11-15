@@ -12,6 +12,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from common.config_reader import get_settings
 from common.config_writer import update_settings
 from common.constants import (
+    LISTEN_PORT_MAX,
+    LISTEN_PORT_MIN,
     LOG_LEVELS,
     SETTING_DEFAULTS,
     SETTING_LLD_INTERVAL_SEC,
@@ -23,7 +25,10 @@ from common.constants import (
     SETTING_TELEMETRY_UDP_PORT,
     SETTING_ZABBIX_PORT,
     SETTING_ZABBIX_SERVER,
+    TCP_UDP_PORT_MAX,
+    TCP_UDP_PORT_MIN,
 )
+from common.netconfig import ACTION_SYNC_FIREWALL
 from common.validation import ValidationError, validate_settings
 from web.auth import CurrentUser
 from web.context import WebContext
@@ -45,11 +50,16 @@ def _range_note(key: str, unit: str) -> str:
 # 全体設定の画面に並べる項目(7.4.5.1)。WebGUIのポート番号はシステム設定の画面で扱う(7.4.7)
 FIELDS: tuple[SettingField, ...] = (
     SettingField(SETTING_ZABBIX_SERVER, "ZabbixサーバーのIPアドレス", "必須。例:192.0.2.100"),
-    SettingField(SETTING_ZABBIX_PORT, "Zabbixサーバーのポート番号", "1〜65535。既定値は 10051"),
+    SettingField(
+        SETTING_ZABBIX_PORT,
+        "Zabbixサーバーのポート番号",
+        f"{TCP_UDP_PORT_MIN}〜{TCP_UDP_PORT_MAX}。既定値は {SETTING_DEFAULTS[SETTING_ZABBIX_PORT]}",
+    ),
     SettingField(
         SETTING_TELEMETRY_UDP_PORT,
         "Telemetryの受信ポート番号(UDP)",
-        "1〜65535。既定値は 50051。変更すると、数秒間、受信が欠けます",
+        f"{LISTEN_PORT_MIN}〜{LISTEN_PORT_MAX}。既定値は {SETTING_DEFAULTS[SETTING_TELEMETRY_UDP_PORT]}。"
+        "変更すると、数秒間、受信が欠けます",
     ),
     SettingField(SETTING_STALE_TIMEOUT_SEC, "途絶判定時間", _range_note(SETTING_STALE_TIMEOUT_SEC, "秒")),
     SettingField(SETTING_SELF_MONITOR_INTERVAL_SEC, "自己監視値の送信間隔", _range_note(SETTING_SELF_MONITOR_INTERVAL_SEC, "秒")),
@@ -141,6 +151,11 @@ def register(app: FastAPI, ctx: WebContext) -> None:
                 user,
             )
         update_settings(db, values, audit_user=user.username)
+        if port_changed and ctx.hostctl.available:
+            # ファイアウォールが有効なら、新しい受信ポート番号を開け、古い番号を閉じてもらう(決定事項 D-030)
+            result = ctx.hostctl.submit(ctx.hostctl.new_request(ACTION_SYNC_FIREWALL), wait=False)
+            if not result.ok:
+                ctx.logger.error("ファイアウォールの調整を依頼できませんでした(%s)", result.message)
         return RedirectResponse("/settings?saved=1", status_code=303)
 
     @app.post("/settings/zabbix-test")

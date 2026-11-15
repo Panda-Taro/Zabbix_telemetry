@@ -19,6 +19,7 @@ from pathlib import Path
 import uvicorn
 
 from web.app import create_app
+from web.hostctl import HostCtlClient
 
 
 class FakeNow:
@@ -43,9 +44,18 @@ def free_tcp_port() -> int:
 class WebServer:
     """テスト用に WebGUI を起動する。"""
 
-    def __init__(self, db_path: Path, now: FakeNow, log_dir: Path | None = None) -> None:
+    def __init__(
+        self,
+        db_path: Path,
+        now: FakeNow,
+        log_dir: Path | None = None,
+        hostctl: HostCtlClient | None = None,
+        listen_port: int | None = None,
+    ) -> None:
         self.port = free_tcp_port()
-        self.app = create_app(db_path, logging.getLogger("web-test"), now=now, log_dir=log_dir)
+        self.app = create_app(
+            db_path, logging.getLogger("web-test"), now=now, log_dir=log_dir, hostctl=hostctl, listen_port=listen_port
+        )
         config = uvicorn.Config(self.app, host="127.0.0.1", port=self.port, log_config=None, access_log=False)
         self.server = uvicorn.Server(config)
         self.thread = threading.Thread(target=self.server.run, daemon=True)

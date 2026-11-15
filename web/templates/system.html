@@ -5,9 +5,59 @@
 {% if message %}<p class="message message-ok" role="status">{{ message }}。10秒以内に収集エンジン(collector)へ反映します。</p>{% endif %}
 {% for error in errors %}<p class="message message-error" role="alert">{{ error }}</p>{% endfor %}
 
-<section class="panel panel-narrow">
+<section class="panel panel-narrow" id="host">
   <h2 class="panel-title">本体のIPアドレスとWebGUIのポート番号</h2>
-  <p class="empty">この機能は準備中です。</p>
+  <p>変更は、保存して中間サーバーを再起動したときに反映します。保存する前に、確認を表示します。</p>
+  {% if host_message %}<p class="message message-ok" role="status">{{ host_message }}</p>{% endif %}
+  {% for error in host_errors.get("_", []) %}<p class="message message-error" role="alert">{{ error }}</p>{% endfor %}
+  {% if not hostctl_available %}
+  <p class="banner banner-warn">本体側の補助プログラムが見つかりません。本体のIPアドレスとWebGUIのポート番号は変更できません(deploy.sh で導入した中間サーバーでのみ変更できます)。</p>
+  {% endif %}
+
+  <h3 class="sub-title">現在の設定</h3>
+  <table class="table table-compact">
+    {% if state and not state.error %}
+    <tr><th>LAN端子</th><td>{{ state.interface }}</td></tr>
+    <tr><th>IPアドレス/プレフィックス長</th><td>{{ state.address or "(不明)" }}{% if state.dhcp %}(自動取得 DHCP){% endif %}</td></tr>
+    <tr><th>デフォルトゲートウェイ</th><td>{{ state.gateway or "(不明)" }}</td></tr>
+    <tr><th>DNSサーバー</th><td>{{ state.dns|join(" ") if state.dns else "(不明)" }}</td></tr>
+    {% elif state and state.error %}
+    <tr><th>本体のIPアドレス</th><td class="text-warn">読み取れませんでした({{ state.error }})</td></tr>
+    {% else %}
+    <tr><th>本体のIPアドレス</th><td class="text-muted">不明</td></tr>
+    {% endif %}
+    <tr><th>WebGUIのポート番号</th><td>{{ saved_port }}</td></tr>
+  </table>
+  {% if listen_port and listen_port != saved_port %}
+  <p class="banner banner-warn">保存されているポート番号 {{ saved_port }} が使えなかったため、既定値の {{ listen_port }} で動いています。動作ログを確かめてください。</p>
+  {% endif %}
+
+  <h3 class="sub-title">変更する内容</h3>
+  <form method="post" action="/system/host" class="form">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}">
+    <label class="form-label" for="address">IPアドレス/プレフィックス長</label>
+    <input class="form-input" type="text" id="address" name="address" value="{{ host_form.address }}" maxlength="64">
+    <p class="note">例:192.0.2.10/24。プレフィックス長は {{ prefix_min }}〜{{ prefix_max }}。デフォルトゲートウェイにつながっているLAN端子の設定を変えます。</p>
+    {% for error in host_errors.get("address", []) %}<p class="field-error" role="alert">{{ error }}</p>{% endfor %}
+    <label class="form-label" for="gateway">デフォルトゲートウェイ</label>
+    <input class="form-input" type="text" id="gateway" name="gateway" value="{{ host_form.gateway }}" maxlength="64">
+    <p class="note">例:192.0.2.1。本体と同じネットワークの中のアドレス</p>
+    {% for error in host_errors.get("gateway", []) %}<p class="field-error" role="alert">{{ error }}</p>{% endfor %}
+    <label class="form-label" for="dns1">DNSサーバー(1つ目)</label>
+    <input class="form-input" type="text" id="dns1" name="dns1" value="{{ host_form.dns1 }}" maxlength="64">
+    <label class="form-label" for="dns2">DNSサーバー(2つ目。なければ空欄)</label>
+    <input class="form-input" type="text" id="dns2" name="dns2" value="{{ host_form.dns2 }}" maxlength="64">
+    {% for error in host_errors.get("dns", []) %}<p class="field-error" role="alert">{{ error }}</p>{% endfor %}
+    <p class="note">本体のIPアドレスを変えない場合は、上の4つの欄を今のまま(または、すべて空欄)にしてください。</p>
+    <label class="form-label" for="webgui_port">WebGUIのポート番号</label>
+    <input class="form-input" type="text" id="webgui_port" name="webgui_port" value="{{ host_form.webgui_port }}" maxlength="64">
+    <p class="note">{{ port_min }}〜{{ port_max }}。既定値は {{ fallback_port }}。再起動のあとに使えなかった場合は、{{ fallback_port }} で起動します。</p>
+    {% for error in host_errors.get("webgui_port", []) %}<p class="field-error" role="alert">{{ error }}</p>{% endfor %}
+    <p class="note">保存すると、中間サーバーを再起動します。再起動の間({{ downtime }})は、監視データが失われます。</p>
+    <div class="form-actions">
+      <button type="submit" class="button button-primary" {% if not hostctl_available %}disabled{% endif %}>保存する</button>
+    </div>
+  </form>
 </section>
 
 <section class="panel panel-narrow">
