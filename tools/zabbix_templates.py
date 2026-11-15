@@ -60,10 +60,18 @@ COLLECTOR_FILE = OUTPUT_DIR / "telemetry_collector.yaml"
 # collectorが停止したと判断するまでの時間(9.2.6.3)
 COLLECTOR_NODATA_PERIOD = "3m"
 
-# トリガーの重要度(Zabbixの区分)
+# トリガーの重要度(Zabbixの区分)(決定事項 D-028)
 PRIORITY_DEVICE_STALE = "HIGH"
 PRIORITY_COMMAND_STALE = "AVERAGE"
 PRIORITY_COLLECTOR_STOPPED = "HIGH"
+
+# 機器全体の途絶のトリガー。コマンドごとの途絶のトリガーは、これに依存させる(決定事項 D-028)
+DEVICE_STALE_TRIGGER_NAME = "{HOST.NAME}: Telemetryの受信が途絶しました"
+DEVICE_STALE_TRIGGER_EXPRESSION = f"last(/{NWSW_TEMPLATE}/{KEY_DEVICE_STATUS})=0"
+
+# 受信状態の値のマッピング(1=正常、0=途絶)(決定事項 D-028)
+STATUS_VALUEMAP_NAME = "Telemetry 受信状態"
+STATUS_VALUEMAP: tuple[tuple[str, str], ...] = (("1", "正常"), ("0", "途絶"))
 
 # 値の種類と、Zabbixのアイテムの値の型・単位の対応(9.2.3)
 VALUE_KIND_TYPES: dict[ValueKind, tuple[str, str]] = {
@@ -136,7 +144,11 @@ def _trigger(template: str, key: str, expression: str, name: str, priority: str,
 
 
 def nwsw_template() -> dict[str, Any]:
-    """NWSW用テンプレート:機器単位のアイテム3つ、LLDルール2つ、自己監視のアイテム6つ、トリガー5つ(9.2.6)。"""
+    """NWSW用テンプレート:機器単位のアイテム3つ、LLDルール2つ、自己監視のアイテム6つ、トリガー5つ(9.2.6)。
+
+    コマンドごとの途絶のトリガー4つは、機器全体の途絶のトリガーに依存させる。
+    受信状態のアイテム5つには、1=正常、0=途絶 の値のマッピングを付ける(決定事項 D-028)。
+    """
     t = NWSW_TEMPLATE
     items: list[dict[str, Any]] = []
 
@@ -155,10 +167,10 @@ def nwsw_template() -> dict[str, Any]:
         "その機器からのTelemetryの受信状態。1=正常、0=途絶。中間サーバーが一定間隔で送る。受信待ちの間は送られない。",
         "telemetry",
     )  # fmt: skip
+    status["valuemap"] = {"name": STATUS_VALUEMAP_NAME}
     status["triggers"] = [
         _trigger(
-            t, KEY_DEVICE_STATUS, f"last(/{t}/{KEY_DEVICE_STATUS})=0",
-            "{HOST.NAME}: Telemetryの受信が途絶しました", PRIORITY_DEVICE_STALE,
+            t, KEY_DEVICE_STATUS, DEVICE_STALE_TRIGGER_EXPRESSION, DEVICE_STALE_TRIGGER_NAME, PRIORITY_DEVICE_STALE,
             "中間サーバーが、この機器からのTelemetryを途絶判定時間(既定値5分)受信していません。"
             "Nexusの送信設定と、管理ネットワークの経路を確かめてください。",
         )
@@ -179,14 +191,17 @@ def nwsw_template() -> dict[str, Any]:
             f"{command} のTelemetryの受信状態。1=正常、0=途絶。中間サーバーの機器登録でチェックしたコマンドだけ送られる。",
             "telemetry",
         )  # fmt: skip
-        item["triggers"] = [
-            _trigger(
-                t, key, f"last(/{t}/{key})=0",
-                f"{{HOST.NAME}}: {command} のTelemetryの受信が途絶しました", PRIORITY_COMMAND_STALE,
-                f"中間サーバーが、この機器からの {command} のデータを、途絶判定時間(既定値5分)受信していません。"
-                "中間サーバーの機器登録でチェックを外したコマンドは、値が送られないため、障害になりません。",
-            )
-        ]  # fmt: skip
+        item["valuemap"] = {"name": STATUS_VALUEMAP_NAME}
+        trigger = _trigger(
+            t, key, f"last(/{t}/{key})=0",
+            f"{{HOST.NAME}}: {command} のTelemetryの受信が途絶しました", PRIORITY_COMMAND_STALE,
+            f"中間サーバーが、この機器からの {command} のデータを、途絶判定時間(既定値5分)受信していません。"
+            "中間サーバーの機器登録でチェックを外したコマンドは、値が送られないため、障害になりません。"
+            "機器全体の受信が途絶している間は、この障害は出ません(機器全体の途絶のトリガーに依存させている)。",
+        )  # fmt: skip
+        # 機器全体が途絶したときに、障害が5件同時に出ないよう、同じホストの機器全体の途絶のトリガーに依存させる
+        trigger["dependencies"] = [{"name": DEVICE_STALE_TRIGGER_NAME, "expression": DEVICE_STALE_TRIGGER_EXPRESSION}]
+        item["triggers"] = [trigger]
         items.append(item)
 
     # LLDルールとアイテムのひな形(9.2.4.1)
@@ -230,6 +245,13 @@ def nwsw_template() -> dict[str, Any]:
         "groups": [{"name": TEMPLATE_GROUP}],
         "items": items,
         "discovery_rules": discovery_rules,
+        "valuemaps": [
+            {
+                "uuid": make_uuid(t, "valuemap", STATUS_VALUEMAP_NAME),
+                "name": STATUS_VALUEMAP_NAME,
+                "mappings": [{"value": value, "newvalue": text} for value, text in STATUS_VALUEMAP],
+            }
+        ],
     }
 
 

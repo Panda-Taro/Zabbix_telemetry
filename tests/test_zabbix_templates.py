@@ -328,6 +328,45 @@ def test_nwsw_triggers(nwsw):
     assert all("trigger_prototypes" not in rule for rule in nwsw["templates"][0]["discovery_rules"])
 
 
+def test_command_triggers_depend_on_device_trigger(nwsw):
+    """コマンドごとの途絶のトリガー4つは、同じテンプレート(=同じホスト)の機器全体の途絶のトリガーに依存する(D-028)。"""
+    triggers = triggers_of(nwsw)
+    device = [t for t in triggers if t["expression"] == "last(/Telemetry NWSW/telemetry.status)=0"]
+    assert len(device) == 1
+    device_trigger = device[0]
+    assert "dependencies" not in device_trigger  # 機器全体の途絶のトリガーは、何にも依存しない
+    commands = [t for t in triggers if t is not device_trigger]
+    assert len(commands) == 4
+    for trigger in commands:
+        # Zabbix は、依存先を「名前」と「条件式」の組で探す。どちらも依存先と1文字違わず一致していること
+        assert trigger["dependencies"] == [{"name": device_trigger["name"], "expression": device_trigger["expression"]}]
+    # 依存先の条件式は、このテンプレートのアイテムを指す(テンプレートを適用したホストの、同じホストのトリガーになる)
+    assert device_trigger["expression"].startswith(f"last(/{nwsw['templates'][0]['template']}/")
+
+
+def test_status_valuemap(nwsw, collector_tpl):
+    """受信状態(機器全体と4コマンドごと)の 1 を「正常」、0 を「途絶」と表示する(D-028)。"""
+    template = nwsw["templates"][0]
+    valuemaps = {vm["name"]: vm for vm in template["valuemaps"]}
+    assert set(valuemaps) == {"Telemetry 受信状態"}
+    assert valuemaps["Telemetry 受信状態"]["mappings"] == [
+        {"value": "1", "newvalue": "正常"},
+        {"value": "0", "newvalue": "途絶"},
+    ]
+    with_map = {key for key, item in items_of(nwsw).items() if "valuemap" in item}
+    assert with_map == {
+        "telemetry.status",
+        "telemetry.status[show interface counters brief]",
+        "telemetry.status[show ptp brief]",
+        "telemetry.status[show ptp clock]",
+        "telemetry.status[show ptp parent]",
+    }
+    for key in with_map:
+        assert items_of(nwsw)[key]["valuemap"] == {"name": "Telemetry 受信状態"}
+    assert "valuemaps" not in collector_tpl["templates"][0]
+    assert all("valuemap" not in item for item in items_of(collector_tpl).values())
+
+
 def test_collector_trigger(collector_tpl):
     """中間サーバー用のトリガーは、telemetry.collector.received が3分間届かない、の1つだけ。"""
     triggers = triggers_of(collector_tpl)

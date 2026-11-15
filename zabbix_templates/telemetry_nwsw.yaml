@@ -53,6 +53,8 @@ zabbix_export:
           tags:
             - tag: 'component'
               value: 'telemetry'
+          valuemap:
+            name: 'Telemetry 受信状態'
           triggers:
             - uuid: 'a84177dbacff4ef080fc608db4f23f97'
               expression: 'last(/Telemetry NWSW/telemetry.status)=0'
@@ -78,12 +80,17 @@ zabbix_export:
           tags:
             - tag: 'component'
               value: 'telemetry'
+          valuemap:
+            name: 'Telemetry 受信状態'
           triggers:
             - uuid: '8b5f3144c7f14dbdbbc070eda9527282'
               expression: 'last(/Telemetry NWSW/telemetry.status[show interface counters brief])=0'
               name: '{HOST.NAME}: show interface counters brief のTelemetryの受信が途絶しました'
               priority: 'AVERAGE'
-              description: '中間サーバーが、この機器からの show interface counters brief のデータを、途絶判定時間(既定値5分)受信していません。中間サーバーの機器登録でチェックを外したコマンドは、値が送られないため、障害になりません。'
+              description: '中間サーバーが、この機器からの show interface counters brief のデータを、途絶判定時間(既定値5分)受信していません。中間サーバーの機器登録でチェックを外したコマンドは、値が送られないため、障害になりません。機器全体の受信が途絶している間は、この障害は出ません(機器全体の途絶のトリガーに依存させている)。'
+              dependencies:
+                - name: '{HOST.NAME}: Telemetryの受信が途絶しました'
+                  expression: 'last(/Telemetry NWSW/telemetry.status)=0'
         - uuid: 'ba9139caafba4201ba6448accc50d824'
           name: 'telemetry: show ptp brief の受信状態(1=正常、0=途絶)'
           type: 'TRAP'
@@ -93,12 +100,17 @@ zabbix_export:
           tags:
             - tag: 'component'
               value: 'telemetry'
+          valuemap:
+            name: 'Telemetry 受信状態'
           triggers:
             - uuid: '895495d0911b4c2190709850bf5d2a57'
               expression: 'last(/Telemetry NWSW/telemetry.status[show ptp brief])=0'
               name: '{HOST.NAME}: show ptp brief のTelemetryの受信が途絶しました'
               priority: 'AVERAGE'
-              description: '中間サーバーが、この機器からの show ptp brief のデータを、途絶判定時間(既定値5分)受信していません。中間サーバーの機器登録でチェックを外したコマンドは、値が送られないため、障害になりません。'
+              description: '中間サーバーが、この機器からの show ptp brief のデータを、途絶判定時間(既定値5分)受信していません。中間サーバーの機器登録でチェックを外したコマンドは、値が送られないため、障害になりません。機器全体の受信が途絶している間は、この障害は出ません(機器全体の途絶のトリガーに依存させている)。'
+              dependencies:
+                - name: '{HOST.NAME}: Telemetryの受信が途絶しました'
+                  expression: 'last(/Telemetry NWSW/telemetry.status)=0'
         - uuid: '59eb4185d4864d8f9b049033eb32ec34'
           name: 'telemetry: show ptp clock の受信状態(1=正常、0=途絶)'
           type: 'TRAP'
@@ -108,12 +120,17 @@ zabbix_export:
           tags:
             - tag: 'component'
               value: 'telemetry'
+          valuemap:
+            name: 'Telemetry 受信状態'
           triggers:
             - uuid: '7c8818d88180459eb9ff35aa790a2e59'
               expression: 'last(/Telemetry NWSW/telemetry.status[show ptp clock])=0'
               name: '{HOST.NAME}: show ptp clock のTelemetryの受信が途絶しました'
               priority: 'AVERAGE'
-              description: '中間サーバーが、この機器からの show ptp clock のデータを、途絶判定時間(既定値5分)受信していません。中間サーバーの機器登録でチェックを外したコマンドは、値が送られないため、障害になりません。'
+              description: '中間サーバーが、この機器からの show ptp clock のデータを、途絶判定時間(既定値5分)受信していません。中間サーバーの機器登録でチェックを外したコマンドは、値が送られないため、障害になりません。機器全体の受信が途絶している間は、この障害は出ません(機器全体の途絶のトリガーに依存させている)。'
+              dependencies:
+                - name: '{HOST.NAME}: Telemetryの受信が途絶しました'
+                  expression: 'last(/Telemetry NWSW/telemetry.status)=0'
         - uuid: 'de1a02727d4746bb8b31e2da8e6110bb'
           name: 'telemetry: show ptp parent の受信状態(1=正常、0=途絶)'
           type: 'TRAP'
@@ -123,12 +140,17 @@ zabbix_export:
           tags:
             - tag: 'component'
               value: 'telemetry'
+          valuemap:
+            name: 'Telemetry 受信状態'
           triggers:
             - uuid: 'ecaf08b57ce840b1b4fefd806a72c754'
               expression: 'last(/Telemetry NWSW/telemetry.status[show ptp parent])=0'
               name: '{HOST.NAME}: show ptp parent のTelemetryの受信が途絶しました'
               priority: 'AVERAGE'
-              description: '中間サーバーが、この機器からの show ptp parent のデータを、途絶判定時間(既定値5分)受信していません。中間サーバーの機器登録でチェックを外したコマンドは、値が送られないため、障害になりません。'
+              description: '中間サーバーが、この機器からの show ptp parent のデータを、途絶判定時間(既定値5分)受信していません。中間サーバーの機器登録でチェックを外したコマンドは、値が送られないため、障害になりません。機器全体の受信が途絶している間は、この障害は出ません(機器全体の途絶のトリガーに依存させている)。'
+              dependencies:
+                - name: '{HOST.NAME}: Telemetryの受信が途絶しました'
+                  expression: 'last(/Telemetry NWSW/telemetry.status)=0'
       discovery_rules:
         - uuid: '9563f9f230244c9eb97c909080164f53'
           name: 'show interface counters brief: 帯域監視のインターフェース'
@@ -181,3 +203,11 @@ zabbix_export:
                   value: 'ptp'
                 - tag: 'interface'
                   value: '{#IFNAME}'
+      valuemaps:
+        - uuid: '0963ce2237e44b3183231e3984581989'
+          name: 'Telemetry 受信状態'
+          mappings:
+            - value: '1'
+              newvalue: '正常'
+            - value: '0'
+              newvalue: '途絶'
