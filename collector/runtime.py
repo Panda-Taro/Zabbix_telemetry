@@ -17,6 +17,13 @@ from common.constants import DROP_QUEUE_FULL
 from common.logging_setup import LogAggregator
 
 
+def _identity(device: DeviceConfig | None) -> tuple[str, str] | None:
+    """送信元の確認(RX-03、RX-04)に使う登録内容。登録がなければ None。"""
+    if device is None:
+        return None
+    return (device.hostname, device.device_type)
+
+
 class Runtime:
     """collector の実行中の状態。"""
 
@@ -37,8 +44,16 @@ class Runtime:
         self._devices_by_ip = dict(config.devices_by_ip)
 
     def set_config(self, config: CollectorConfig) -> None:
+        previous = self._devices_by_ip
         self.config = config
         self._devices_by_ip = dict(config.devices_by_ip)
+        # 新しく登録した送信元と、ホスト名などの登録を変えた送信元は、未登録の送信元の記録から消す
+        # (決定事項 D-035)。それでも一致しない場合は、次に届いたデータで、また記録される。
+        self.unknown_sources.forget(
+            source_ip
+            for source_ip, device in self._devices_by_ip.items()
+            if _identity(previous.get(source_ip)) != _identity(device)
+        )
 
     def device_for_ip(self, source_ip: str, device_type: str) -> DeviceConfig | None:
         """送信元IPアドレスから、登録済みの機器を探す(RX-03)。機器の種類も一致するものだけ。"""

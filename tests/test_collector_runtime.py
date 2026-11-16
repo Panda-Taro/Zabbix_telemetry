@@ -277,6 +277,66 @@ def test_config_change_applied_without_restart(tmp_path):
     conn.close()
 
 
+def test_registering_device_clears_unknown_source(tmp_path):
+    """機器を登録すると、その送信元は未登録の送信元の一覧から消える(決定事項 D-035)。
+
+    登録と関係のない設定の変更では消えない。ホスト名を直した場合も消え、
+    一致しないデータが届けば、また一覧に表示される。
+    """
+    db = tmp_path / "telemetry.db"
+    prepare_db(db, [device()])
+    conn = connect(db)
+
+    async def reload(app, clock) -> None:  # noqa: ANN001
+        clock.advance(2)
+        await app.tick()
+
+    async def scenario():
+        async with started_app(db) as (app, sink, clock):
+            handler = handler_of(app)
+            listed = lambda: {e.source_ip for e in app.runtime.unknown_sources.entries()}  # noqa: E731
+            document = fixture_document("show ptp clock")
+            document["node_id_str"] = "NEXUS-TEST-02"
+            handler.handle(to_payload(document), "192.0.2.2", clock())  # 未登録の送信元
+            handler.handle(to_payload(document), "192.0.2.3", clock())  # 未登録のまま残す送信元
+            mismatch = fixture_document("show ptp clock")
+            mismatch["node_id_str"] = "NEXUS-TEST-99"
+            handler.handle(to_payload(mismatch), "192.0.2.1", clock())  # ホスト名の不一致
+            assert listed() == {"192.0.2.1", "192.0.2.2", "192.0.2.3"}
+
+            # 登録と関係のない設定の変更では、一覧は変わらない
+            update_settings(conn, {"log_level": "DEBUG"})
+            await reload(app, clock)
+            assert listed() == {"192.0.2.1", "192.0.2.2", "192.0.2.3"}
+
+            # 機器を登録すると、その送信元だけが一覧から消える(状態データにも反映される)
+            save_device(conn, device("NEXUS-TEST-02", "192.0.2.2"))
+            await reload(app, clock)
+            assert listed() == {"192.0.2.1", "192.0.2.3"}
+            await app.write_status_now()
+            rows = {row[0] for row in conn.execute("SELECT source_ip FROM unknown_sources")}
+            assert rows == {"192.0.2.1", "192.0.2.3"}
+
+            # 登録したあとは、その送信元のデータを受け付け、一覧には戻らない
+            discarded = app.runtime.counters.recent()[dropped("unknown_source")]
+            handler.handle(to_payload(document), "192.0.2.2", clock())
+            assert "192.0.2.2" not in listed()
+            assert app.runtime.counters.recent()[dropped("unknown_source")] == discarded
+
+            # ホスト名の登録を直すと、その送信元も一覧から消える
+            device_id = next(d.id for d in app.runtime.config.devices if d.source_ip == "192.0.2.1")
+            save_device(conn, device("NEXUS-TEST-98", "192.0.2.1"), device_id=device_id)
+            await reload(app, clock)
+            assert listed() == {"192.0.2.3"}
+            # まだ一致しない場合は、次に届いたデータで、また一覧に表示される
+            handler.handle(to_payload(mismatch), "192.0.2.1", clock())
+            entry = {e.source_ip: e for e in app.runtime.unknown_sources.entries()}["192.0.2.1"]
+            assert (entry.node_id, entry.count) == ("NEXUS-TEST-99", 1)
+
+    run(scenario())
+    conn.close()
+
+
 def test_settings_change_applied(tmp_path):
     """全体設定の変更(Zabbixの送信先、キューの上限、ログレベル)が反映される。"""
     db = tmp_path / "telemetry.db"

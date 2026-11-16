@@ -1,5 +1,6 @@
 """未登録の送信元の記録(5.4.2、8.4.5、RX-05)。"""
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 from common.constants import MAX_STORED_NODE_ID_LENGTH, UNKNOWN_SOURCES_MAX
@@ -35,6 +36,11 @@ class UnknownSourceTracker:
             # 最後に受信した日時が古いものから削除する(8.4.5.1)
             oldest = min(self._entries.values(), key=lambda e: e.last_received_ns)
             del self._entries[oldest.source_ip]
+
+    def forget(self, source_ips: Iterable[str]) -> None:
+        """指定した送信元IPアドレスの記録を消す(決定事項 D-035)。"""
+        for source_ip in source_ips:
+            self._entries.pop(source_ip, None)
 
     def entries(self) -> list[UnknownSource]:
         return sorted(self._entries.values(), key=lambda e: e.last_received_ns, reverse=True)
